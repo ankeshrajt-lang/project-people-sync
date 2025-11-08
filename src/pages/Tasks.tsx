@@ -19,6 +19,7 @@ export default function Tasks() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [parentTaskId, setParentTaskId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading } = useQuery({
@@ -33,7 +34,15 @@ export default function Tasks() {
         `)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      
+      // Group tasks by parent-child relationship
+      const parentTasks = data?.filter(t => !t.parent_task_id) || [];
+      const childTasks = data?.filter(t => t.parent_task_id) || [];
+      
+      return parentTasks.map(parent => ({
+        ...parent,
+        subtasks: childTasks.filter(child => child.parent_task_id === parent.id)
+      }));
     },
   });
 
@@ -129,8 +138,20 @@ export default function Tasks() {
     setIsDialogOpen(open);
     if (!open) {
       setEditingTask(null);
+      setParentTaskId(null);
     }
   };
+
+  const handleCreateSubtask = (taskId: string) => {
+    setParentTaskId(taskId);
+    setIsDialogOpen(true);
+  };
+
+  // Flatten tasks for the task selector
+  const allTasksList = tasks?.flatMap(t => [
+    { id: t.id, title: t.title },
+    ...(t.subtasks?.map((st: any) => ({ id: st.id, title: `${t.title} > ${st.title}` })) || [])
+  ]) || [];
 
   return (
     <div className="space-y-6">
@@ -175,15 +196,32 @@ export default function Tasks() {
           <p className="text-muted-foreground">Loading tasks...</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-6">
           {filteredTasks?.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onStatusChange={(status) => updateTaskMutation.mutate({ id: task.id, status })}
-              onDelete={() => deleteTaskMutation.mutate(task.id)}
-              onEdit={() => handleEdit(task)}
-            />
+            <div key={task.id} className="space-y-2">
+              <TaskCard
+                task={task}
+                onStatusChange={(status) => updateTaskMutation.mutate({ id: task.id, status })}
+                onDelete={() => deleteTaskMutation.mutate(task.id)}
+                onEdit={() => handleEdit(task)}
+                onCreateSubtask={() => handleCreateSubtask(task.id)}
+                subtasksCount={task.subtasks?.length || 0}
+              />
+              {task.subtasks && task.subtasks.length > 0 && (
+                <div className="ml-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {task.subtasks.map((subtask: any) => (
+                    <TaskCard
+                      key={subtask.id}
+                      task={subtask}
+                      onStatusChange={(status) => updateTaskMutation.mutate({ id: subtask.id, status })}
+                      onDelete={() => deleteTaskMutation.mutate(subtask.id)}
+                      onEdit={() => handleEdit(subtask)}
+                      isSubtask
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
           {(!filteredTasks || filteredTasks.length === 0) && (
             <div className="col-span-full text-center py-12">
@@ -201,6 +239,8 @@ export default function Tasks() {
         members={members || []}
         task={editingTask}
         currentUserId={members?.[0]?.id}
+        parentTaskId={parentTaskId}
+        allTasks={allTasksList}
       />
     </div>
   );

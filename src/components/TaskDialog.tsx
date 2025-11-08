@@ -34,13 +34,16 @@ interface TaskDialogProps {
     assigned_to: string | null;
   } | null;
   currentUserId?: string | null;
+  parentTaskId?: string | null;
+  allTasks?: Array<{ id: string; title: string }>;
 }
 
-export function TaskDialog({ open, onOpenChange, members, task, currentUserId }: TaskDialogProps) {
+export function TaskDialog({ open, onOpenChange, members, task, currentUserId, parentTaskId, allTasks }: TaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [assignedTo, setAssignedTo] = useState<string>("unassigned");
+  const [parentTask, setParentTask] = useState<string>(parentTaskId || "none");
   const [files, setFiles] = useState<FileList | null>(null);
   const queryClient = useQueryClient();
   const isEditing = !!task;
@@ -53,8 +56,9 @@ export function TaskDialog({ open, onOpenChange, members, task, currentUserId }:
       setAssignedTo(task.assigned_to || "unassigned");
     } else {
       resetForm();
+      setParentTask(parentTaskId || "none");
     }
-  }, [task, open]);
+  }, [task, open, parentTaskId]);
 
   const saveTaskMutation = useMutation({
     mutationFn: async () => {
@@ -106,7 +110,8 @@ export function TaskDialog({ open, onOpenChange, members, task, currentUserId }:
             priority,
             assigned_to: assignedTo === "unassigned" ? null : assignedTo,
             status: "active",
-          })
+            parent_task_id: parentTask === "none" ? null : parentTask,
+          } as any)
           .select()
           .single();
         if (error) throw error;
@@ -177,6 +182,7 @@ export function TaskDialog({ open, onOpenChange, members, task, currentUserId }:
     setDescription("");
     setPriority("medium");
     setAssignedTo("unassigned");
+    setParentTask("none");
     setFiles(null);
   };
 
@@ -248,6 +254,24 @@ export function TaskDialog({ open, onOpenChange, members, task, currentUserId }:
                 </SelectContent>
               </Select>
             </div>
+            {!isEditing && (
+              <div className="grid gap-2">
+                <Label htmlFor="parentTask">Parent Task (Optional)</Label>
+                <Select value={parentTask} onValueChange={setParentTask}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No parent task" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No parent task</SelectItem>
+                    {allTasks?.filter(t => !task || t.id !== task.id).map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="files">Attach Files</Label>
               <Input

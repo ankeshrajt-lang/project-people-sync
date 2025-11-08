@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Circle, Trash2, User, Edit, History, Paperclip } from "lucide-react";
+import { CheckCircle2, Circle, Trash2, User, Edit, History, Paperclip, Plus, ListTree } from "lucide-react";
 import { useState } from "react";
 import { TaskHistoryDialog } from "./TaskHistoryDialog";
 import {
@@ -30,9 +30,12 @@ interface TaskCardProps {
   onStatusChange: (status: string) => void;
   onDelete: () => void;
   onEdit: () => void;
+  onCreateSubtask?: () => void;
+  subtasksCount?: number;
+  isSubtask?: boolean;
 }
 
-export function TaskCard({ task, onStatusChange, onDelete, onEdit }: TaskCardProps) {
+export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubtask, subtasksCount, isSubtask }: TaskCardProps) {
   const isActive = task.status === "active";
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -50,15 +53,18 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit }: TaskCardPro
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={`hover:shadow-md transition-shadow ${isSubtask ? 'border-l-4 border-l-primary' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <h3 className="font-semibold text-lg text-foreground line-clamp-2">
-            {task.title}
-          </h3>
+          <div className="flex items-center gap-2 flex-1">
+            {isSubtask && <ListTree className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+            <h3 className="font-semibold text-lg text-foreground line-clamp-2">
+              {task.title}
+            </h3>
+          </div>
           <Badge
             variant="outline"
-            className={`ml-2 ${isActive ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
+            className={`ml-2 flex-shrink-0 ${isActive ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
           >
             {isActive ? "Active" : "Completed"}
           </Badge>
@@ -84,12 +90,20 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit }: TaskCardPro
               </div>
             )}
           </div>
-          {task.files && task.files.length > 0 && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Paperclip className="h-3 w-3" />
-              {task.files.length}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {task.files && task.files.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Paperclip className="h-3 w-3" />
+                {task.files.length}
+              </div>
+            )}
+            {!isSubtask && subtasksCount !== undefined && subtasksCount > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ListTree className="h-3 w-3" />
+                {subtasksCount}
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between pt-3 border-t border-border">
@@ -128,6 +142,17 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit }: TaskCardPro
           >
             <History className="h-4 w-4" />
           </Button>
+          {!isSubtask && onCreateSubtask && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCreateSubtask}
+              className="gap-2"
+              title="Create subtask"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>

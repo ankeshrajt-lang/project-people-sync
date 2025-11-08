@@ -334,6 +334,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          parent_task_id: string | null
           priority: string | null
           status: string
           title: string
@@ -344,6 +345,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string | null
           status?: string
           title: string
@@ -354,6 +356,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string | null
           status?: string
           title?: string
@@ -365,6 +368,13 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
