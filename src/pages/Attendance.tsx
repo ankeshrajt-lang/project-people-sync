@@ -69,16 +69,16 @@ export default function Attendance() {
   });
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
-      present: "default",
-      absent: "destructive",
-      late: "secondary",
-      "half-day": "outline",
+    const config: Record<string, { variant: "default" | "destructive" | "outline" | "secondary"; className: string }> = {
+      present: { variant: "default", className: "bg-success text-success-foreground border-0" },
+      absent: { variant: "destructive", className: "bg-destructive text-destructive-foreground" },
+      late: { variant: "secondary", className: "bg-warning text-warning-foreground" },
+      "half-day": { variant: "outline", className: "bg-accent/10 text-accent border-accent/20" },
     };
-    const variant = variants[status] || "default";
+    const statusConfig = config[status] || { variant: "default" as const, className: "" };
     return (
-      <Badge variant={variant as "default" | "destructive" | "outline" | "secondary"}>
-        {status}
+      <Badge variant={statusConfig.variant} className={statusConfig.className}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
@@ -107,10 +107,10 @@ export default function Attendance() {
       </div>
 
       <Tabs defaultValue="today" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="week">This Week</TabsTrigger>
-          <TabsTrigger value="month">This Month</TabsTrigger>
+        <TabsList className="grid w-full max-w-md grid-cols-3 h-11 bg-muted/50 p-1">
+          <TabsTrigger value="today" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Today</TabsTrigger>
+          <TabsTrigger value="week" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Week</TabsTrigger>
+          <TabsTrigger value="month" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Month</TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
@@ -127,20 +127,20 @@ export default function Attendance() {
                       <div className="text-2xl font-bold">{stats.total}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-success/20 bg-success/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Present</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">{stats.present}</div>
+                      <div className="text-2xl font-bold text-success">{stats.present}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-destructive/20 bg-destructive/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Absent</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-red-600">{stats.absent}</div>
+                      <div className="text-2xl font-bold text-destructive">{stats.absent}</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -156,11 +156,11 @@ export default function Attendance() {
             })()}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Today's Attendance</CardTitle>
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">Today's Attendance</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -208,20 +208,20 @@ export default function Attendance() {
                       <div className="text-2xl font-bold">{stats.total}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-success/20 bg-success/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Present</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">{stats.present}</div>
+                      <div className="text-2xl font-bold text-success">{stats.present}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-destructive/20 bg-destructive/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Absent</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-red-600">{stats.absent}</div>
+                      <div className="text-2xl font-bold text-destructive">{stats.absent}</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -237,11 +237,11 @@ export default function Attendance() {
             })()}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>This Week's Attendance</CardTitle>
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">This Week's Attendance</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -289,20 +289,20 @@ export default function Attendance() {
                       <div className="text-2xl font-bold">{stats.total}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-success/20 bg-success/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Present</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">{stats.present}</div>
+                      <div className="text-2xl font-bold text-success">{stats.present}</div>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="border-destructive/20 bg-destructive/5">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Absent</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-red-600">{stats.absent}</div>
+                      <div className="text-2xl font-bold text-destructive">{stats.absent}</div>
                     </CardContent>
                   </Card>
                   <Card>
@@ -318,11 +318,11 @@ export default function Attendance() {
             })()}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>This Month's Attendance</CardTitle>
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">This Month's Attendance</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Table>
                 <TableHeader>
                   <TableRow>
