@@ -53,18 +53,23 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubta
   };
 
   return (
-    <Card className={`hover:shadow-md transition-shadow ${isSubtask ? 'border-l-4 border-l-primary' : ''}`}>
+    <Card className={`hover:shadow-md transition-shadow ${isSubtask ? 'border-l-4 border-l-primary/50 bg-muted/30' : ''}`}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            {isSubtask && <ListTree className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-            <h3 className="font-semibold text-lg text-foreground line-clamp-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            {isSubtask && (
+              <div className="flex flex-col items-center pt-1 flex-shrink-0">
+                <div className="w-px h-4 bg-border"></div>
+                <ListTree className="h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+            <h3 className="font-semibold text-lg text-foreground line-clamp-2 flex-1">
               {task.title}
             </h3>
           </div>
           <Badge
             variant="outline"
-            className={`ml-2 flex-shrink-0 ${isActive ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
+            className={`flex-shrink-0 ${isActive ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
           >
             {isActive ? "Active" : "Completed"}
           </Badge>
