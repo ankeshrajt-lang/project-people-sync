@@ -26,28 +26,32 @@ export default function Team() {
       
       if (error) throw error;
 
-      // Fetch user roles separately for members with auth_user_id
-      const membersWithRoles = await Promise.all(
-        (teamMembers || []).map(async (member) => {
-          if (member.auth_user_id) {
-            const { data: roles } = await supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", member.auth_user_id);
-            
-            return {
-              ...member,
-              user_roles: roles || []
-            };
-          }
-          return {
-            ...member,
-            user_roles: []
-          };
-        })
-      );
+      // Get all auth_user_ids that exist
+      const authUserIds = teamMembers?.map(m => m.auth_user_id).filter(Boolean) || [];
+      
+      if (authUserIds.length === 0) {
+        return teamMembers?.map(m => ({ ...m, user_roles: [] })) || [];
+      }
 
-      return membersWithRoles;
+      // Fetch all roles in one query
+      const { data: allRoles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", authUserIds);
+
+      // Map roles to members
+      const rolesMap = new Map<string, Array<{ role: string }>>();
+      allRoles?.forEach(r => {
+        if (!rolesMap.has(r.user_id)) {
+          rolesMap.set(r.user_id, []);
+        }
+        rolesMap.get(r.user_id)?.push({ role: r.role });
+      });
+
+      return teamMembers?.map(member => ({
+        ...member,
+        user_roles: member.auth_user_id ? (rolesMap.get(member.auth_user_id) || []) : []
+      })) || [];
     },
   });
 
