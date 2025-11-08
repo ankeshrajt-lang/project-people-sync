@@ -36,6 +36,10 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
     mutationFn: async () => {
       if (!file) throw new Error("No file selected");
 
+      // Check authentication FIRST
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) throw new Error("Not authenticated");
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${fileName}`;
@@ -46,9 +50,6 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
-
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) throw new Error("Not authenticated");
 
       // Save metadata to database
       const { data: fileRecord, error: dbError } = await supabase.from("files").insert({
