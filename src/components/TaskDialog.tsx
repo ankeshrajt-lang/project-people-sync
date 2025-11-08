@@ -32,7 +32,7 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("unassigned");
   const queryClient = useQueryClient();
 
   const createTaskMutation = useMutation({
@@ -41,7 +41,7 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
         title,
         description,
         priority,
-        assigned_to: assignedTo || null,
+        assigned_to: assignedTo === "unassigned" ? null : assignedTo,
         status: "active",
       });
       if (error) throw error;
@@ -61,7 +61,7 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
     setTitle("");
     setDescription("");
     setPriority("medium");
-    setAssignedTo("");
+    setAssignedTo("unassigned");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -123,7 +123,7 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {members.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
