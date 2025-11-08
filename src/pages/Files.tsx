@@ -53,8 +53,6 @@ export default function Files() {
         .from("files")
         .select(`
           *,
-          team_members(name),
-          tasks(title, id),
           file_access(access_level)
         `)
         .order("created_at", { ascending: false });
@@ -66,7 +64,10 @@ export default function Files() {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error("Files query error:", error);
+        throw error;
+      }
       return data;
     },
   });

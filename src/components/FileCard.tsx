@@ -23,9 +23,8 @@ interface FileCardProps {
     file_path: string;
     file_type: string;
     file_size: number | null;
-    team_members: { name: string } | null;
-    tasks?: { title: string; id: string } | null;
     created_at: string;
+    file_access?: Array<{ access_level: string }>;
   };
   onDelete: () => void;
 }
@@ -87,18 +86,10 @@ export function FileCard({ file, onDelete }: FileCardProps) {
       </CardHeader>
       <CardContent className="pb-3">
         <div className="space-y-2 text-sm">
-          {file.team_members && (
-            <p className="text-muted-foreground">
-              Uploaded by <span className="text-foreground">{file.team_members.name}</span>
-            </p>
-          )}
-          {file.tasks && (
-            <div className="flex items-center gap-2">
-              <Link2 className="h-3 w-3 text-muted-foreground" />
-              <Badge variant="outline" className="text-xs">
-                {file.tasks.title}
-              </Badge>
-            </div>
+          {file.file_access && file.file_access.length > 0 && (
+            <Badge variant="outline" className="text-xs">
+              {file.file_access[0].access_level.replace("_", " ")}
+            </Badge>
           )}
           <p className="text-muted-foreground">
             {new Date(file.created_at).toLocaleDateString()}
