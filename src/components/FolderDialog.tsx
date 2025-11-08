@@ -21,105 +21,87 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-interface FileUploadDialogProps {
+interface FolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folderId?: string | null;
+  parentFolderId?: string | null;
 }
 
-export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDialogProps) {
-  const [file, setFile] = useState<File | null>(null);
+export function FolderDialog({ open, onOpenChange, parentFolderId }: FolderDialogProps) {
+  const [name, setName] = useState("");
   const [accessLevel, setAccessLevel] = useState<string>("team_member");
   const queryClient = useQueryClient();
 
-  const uploadFileMutation = useMutation({
+  const createFolderMutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("No file selected");
-
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from("project-files")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
+      if (!name.trim()) throw new Error("Folder name is required");
 
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) throw new Error("Not authenticated");
 
-      // Save metadata to database
-      const { data: fileRecord, error: dbError } = await supabase.from("files").insert({
-        name: file.name,
-        file_path: filePath,
-        file_type: file.type,
-        file_size: file.size,
-        folder_id: folderId,
-        uploaded_by: session.session.user.id,
-      }).select().single();
-
-      if (dbError) throw dbError;
-
-      // Create file access
-      const { error: accessError } = await supabase
-        .from("file_access")
+      // Create folder
+      const { data: folder, error: folderError } = await supabase
+        .from("folders")
         .insert({
-          file_id: fileRecord.id,
+          name: name.trim(),
+          parent_folder_id: parentFolderId,
+          created_by: session.session.user.id,
+        })
+        .select()
+        .single();
+
+      if (folderError) throw folderError;
+
+      // Create folder access
+      const { error: accessError } = await supabase
+        .from("folder_access")
+        .insert({
+          folder_id: folder.id,
           access_level: accessLevel,
         } as any);
 
       if (accessError) throw accessError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["files"] });
-      toast.success("File uploaded successfully");
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      toast.success("Folder created successfully");
       resetForm();
       onOpenChange(false);
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to upload file");
+      toast.error(error.message || "Failed to create folder");
     },
   });
 
   const resetForm = () => {
-    setFile(null);
+    setName("");
     setAccessLevel("team_member");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      toast.error("Please select a file");
-      return;
-    }
-    uploadFileMutation.mutate();
+    createFolderMutation.mutate();
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Upload File</DialogTitle>
+          <DialogTitle>Create New Folder</DialogTitle>
           <DialogDescription>
-            Upload a document or file to your project storage.
+            Create a folder to organize files with specific access permissions.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="file">File</Label>
+              <Label htmlFor="name">Folder Name</Label>
               <Input
-                id="file"
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter folder name"
               />
-              {file && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                </p>
-              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="access">Access Level</Label>
@@ -141,8 +123,8 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={uploadFileMutation.isPending || !file}>
-              {uploadFileMutation.isPending ? "Uploading..." : "Upload"}
+            <Button type="submit" disabled={createFolderMutation.isPending}>
+              {createFolderMutation.isPending ? "Creating..." : "Create Folder"}
             </Button>
           </DialogFooter>
         </form>
