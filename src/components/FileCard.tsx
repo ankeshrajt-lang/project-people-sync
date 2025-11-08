@@ -1,6 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Trash2, Eye } from "lucide-react";
+import { FileText, Download, Trash2, Eye, Link2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
@@ -23,6 +24,7 @@ interface FileCardProps {
     file_type: string;
     file_size: number | null;
     team_members: { name: string } | null;
+    tasks?: { title: string; id: string } | null;
     created_at: string;
   };
   onDelete: () => void;
@@ -89,6 +91,14 @@ export function FileCard({ file, onDelete }: FileCardProps) {
             <p className="text-muted-foreground">
               Uploaded by <span className="text-foreground">{file.team_members.name}</span>
             </p>
+          )}
+          {file.tasks && (
+            <div className="flex items-center gap-2">
+              <Link2 className="h-3 w-3 text-muted-foreground" />
+              <Badge variant="outline" className="text-xs">
+                {file.tasks.title}
+              </Badge>
+            </div>
           )}
           <p className="text-muted-foreground">
             {new Date(file.created_at).toLocaleDateString()}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -26,42 +26,158 @@ interface TaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   members: Array<{ id: string; name: string }>;
+  task?: {
+    id: string;
+    title: string;
+    description: string | null;
+    priority: string | null;
+    assigned_to: string | null;
+  } | null;
+  currentUserId?: string | null;
 }
 
-export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
+export function TaskDialog({ open, onOpenChange, members, task, currentUserId }: TaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [assignedTo, setAssignedTo] = useState<string>("unassigned");
+  const [files, setFiles] = useState<FileList | null>(null);
   const queryClient = useQueryClient();
+  const isEditing = !!task;
 
-  const createTaskMutation = useMutation({
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || "");
+      setPriority(task.priority || "medium");
+      setAssignedTo(task.assigned_to || "unassigned");
+    } else {
+      resetForm();
+    }
+  }, [task, open]);
+
+  const saveTaskMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("tasks").insert({
-        title,
-        description,
-        priority,
-        assigned_to: assignedTo === "unassigned" ? null : assignedTo,
-        status: "active",
-      });
-      if (error) throw error;
+      if (isEditing) {
+        // Track changes for history
+        const changes = [];
+        if (task.title !== title) changes.push({ field: "title", old: task.title, new: title });
+        if (task.description !== description) changes.push({ field: "description", old: task.description, new: description });
+        if (task.priority !== priority) changes.push({ field: "priority", old: task.priority, new: priority });
+        if (task.assigned_to !== (assignedTo === "unassigned" ? null : assignedTo)) {
+          changes.push({ field: "assigned_to", old: task.assigned_to, new: assignedTo === "unassigned" ? null : assignedTo });
+        }
+
+        // Update task
+        const { error: updateError } = await supabase
+          .from("tasks")
+          .update({
+            title,
+            description,
+            priority,
+            assigned_to: assignedTo === "unassigned" ? null : assignedTo,
+          })
+          .eq("id", task.id);
+        if (updateError) throw updateError;
+
+        // Add history entries
+        for (const change of changes) {
+          await supabase.from("task_history").insert({
+            task_id: task.id,
+            changed_by: currentUserId,
+            action: `Updated ${change.field}`,
+            field_name: change.field,
+            old_value: change.old?.toString() || null,
+            new_value: change.new?.toString() || null,
+          });
+        }
+
+        // Handle file uploads for edited task
+        if (files && files.length > 0) {
+          await uploadFiles(task.id);
+        }
+      } else {
+        // Create new task
+        const { data: newTask, error } = await supabase
+          .from("tasks")
+          .insert({
+            title,
+            description,
+            priority,
+            assigned_to: assignedTo === "unassigned" ? null : assignedTo,
+            status: "active",
+          })
+          .select()
+          .single();
+        if (error) throw error;
+
+        // Add creation history
+        await supabase.from("task_history").insert({
+          task_id: newTask.id,
+          changed_by: currentUserId,
+          action: "Created task",
+        });
+
+        // Handle file uploads
+        if (files && files.length > 0) {
+          await uploadFiles(newTask.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      toast.success("Task created successfully");
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      toast.success(isEditing ? "Task updated successfully" : "Task created successfully");
       resetForm();
       onOpenChange(false);
     },
     onError: () => {
-      toast.error("Failed to create task");
+      toast.error(isEditing ? "Failed to update task" : "Failed to create task");
     },
   });
+
+  const uploadFiles = async (taskId: string) => {
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileName = `${Date.now()}-${file.name}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("project-files")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        continue;
+      }
+
+      // Insert file record
+      await supabase.from("files").insert({
+        name: file.name,
+        file_path: fileName,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_by: currentUserId,
+        task_id: taskId,
+      });
+
+      // Add history entry
+      await supabase.from("task_history").insert({
+        task_id: taskId,
+        changed_by: currentUserId,
+        action: `Attached file: ${file.name}`,
+      });
+    }
+  };
 
   const resetForm = () => {
     setTitle("");
     setDescription("");
     setPriority("medium");
     setAssignedTo("unassigned");
+    setFiles(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,16 +186,16 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
       toast.error("Please enter a task title");
       return;
     }
-    createTaskMutation.mutate();
+    saveTaskMutation.mutate();
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Task" : "Create New Task"}</DialogTitle>
           <DialogDescription>
-            Add a new task to track work for your team members.
+            {isEditing ? "Update task details" : "Add a new task to track work for your team members."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -132,13 +248,34 @@ export function TaskDialog({ open, onOpenChange, members }: TaskDialogProps) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="files">Attach Files</Label>
+              <Input
+                id="files"
+                type="file"
+                multiple
+                onChange={(e) => setFiles(e.target.files)}
+                className="cursor-pointer"
+              />
+              {files && files.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {files.length} file(s) selected
+                </p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createTaskMutation.isPending}>
-              {createTaskMutation.isPending ? "Creating..." : "Create Task"}
+            <Button type="submit" disabled={saveTaskMutation.isPending}>
+              {saveTaskMutation.isPending
+                ? isEditing
+                  ? "Updating..."
+                  : "Creating..."
+                : isEditing
+                ? "Update Task"
+                : "Create Task"}
             </Button>
           </DialogFooter>
         </form>

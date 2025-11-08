@@ -1,7 +1,8 @@
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Trash2 } from "lucide-react";
+import { Mail, Trash2, Shield } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ interface MemberCardProps {
     email: string;
     role: string | null;
     avatar_url: string | null;
+    user_roles?: Array<{ role: string }>;
   };
   onDelete: () => void;
 }
@@ -32,6 +34,23 @@ export function MemberCard({ member, onDelete }: MemberCardProps) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  const systemRole = member.user_roles?.[0]?.role;
+  const getRoleBadge = (role?: string) => {
+    if (!role) return null;
+    const config: Record<string, { label: string; className: string }> = {
+      manager: { label: "Manager", className: "bg-primary text-primary-foreground" },
+      team_lead: { label: "Team Lead", className: "bg-accent text-accent-foreground" },
+      team_member: { label: "Team Member", className: "bg-muted text-muted-foreground" },
+    };
+    const roleConfig = config[role] || { label: role, className: "" };
+    return (
+      <Badge className={roleConfig.className}>
+        <Shield className="h-3 w-3 mr-1" />
+        {roleConfig.label}
+      </Badge>
+    );
+  };
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -45,10 +64,13 @@ export function MemberCard({ member, onDelete }: MemberCardProps) {
           </Avatar>
           <div className="flex-1">
             <h3 className="font-semibold text-lg text-foreground">{member.name}</h3>
-            {member.role && (
-              <p className="text-sm text-muted-foreground">{member.role}</p>
-            )}
+            <div className="flex items-center gap-2 mt-1">
+              {member.role && (
+                <p className="text-sm text-muted-foreground">{member.role}</p>
+              )}
+            </div>
           </div>
+          {getRoleBadge(systemRole)}
         </div>
       </CardHeader>
       <CardContent className="pb-3">

@@ -16,7 +16,9 @@ import { toast } from "sonner";
 
 export default function Tasks() {
   const [filter, setFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading } = useQuery({
@@ -24,7 +26,11 @@ export default function Tasks() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("*, team_members(name)")
+        .select(`
+          *,
+          team_members(name, id),
+          files(id, name, file_path)
+        `)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -36,6 +42,24 @@ export default function Tasks() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
+        .select(`
+          *,
+          user_roles(role)
+        `);
+      if (error) throw error;
+      // Transform the data to handle array vs single object
+      return data?.map(member => ({
+        ...member,
+        user_roles: Array.isArray(member.user_roles) ? member.user_roles : member.user_roles ? [member.user_roles] : []
+      }));
+    },
+  });
+
+  const { data: roles } = useQuery({
+    queryKey: ["user_roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
         .select("*");
       if (error) throw error;
       return data;
@@ -77,9 +101,36 @@ export default function Tasks() {
   });
 
   const filteredTasks = tasks?.filter((task) => {
-    if (filter === "all") return true;
-    return task.status === filter;
+    // Filter by status
+    if (filter !== "all" && task.status !== filter) return false;
+    
+    // Filter by role
+    if (roleFilter !== "all" && task.team_members) {
+      const member = members?.find(m => m.id === task.team_members?.id);
+      const memberRole = member?.user_roles?.[0]?.role;
+      if (memberRole !== roleFilter) return false;
+    }
+    
+    return true;
   });
+
+  const handleEdit = (task: any) => {
+    setEditingTask({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      assigned_to: task.assigned_to,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingTask(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -94,7 +145,7 @@ export default function Tasks() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Filter className="h-5 w-5 text-muted-foreground" />
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[180px]">
@@ -104,6 +155,17 @@ export default function Tasks() {
             <SelectItem value="all">All Tasks</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="team_member">Team Member</SelectItem>
+            <SelectItem value="team_lead">Team Lead</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -120,6 +182,7 @@ export default function Tasks() {
               task={task}
               onStatusChange={(status) => updateTaskMutation.mutate({ id: task.id, status })}
               onDelete={() => deleteTaskMutation.mutate(task.id)}
+              onEdit={() => handleEdit(task)}
             />
           ))}
           {(!filteredTasks || filteredTasks.length === 0) && (
@@ -134,8 +197,10 @@ export default function Tasks() {
 
       <TaskDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={handleDialogClose}
         members={members || []}
+        task={editingTask}
+        currentUserId={members?.[0]?.id}
       />
     </div>
   );

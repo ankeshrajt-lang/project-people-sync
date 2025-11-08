@@ -16,10 +16,17 @@ export default function Team() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
-        .select("*")
+        .select(`
+          *,
+          user_roles(role)
+        `)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      // Transform the data to handle array vs single object
+      return data?.map(member => ({
+        ...member,
+        user_roles: Array.isArray(member.user_roles) ? member.user_roles : member.user_roles ? [member.user_roles] : []
+      }));
     },
   });
 

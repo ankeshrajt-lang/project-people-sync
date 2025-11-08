@@ -12,6 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface MemberDialogProps {
@@ -23,19 +30,35 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
+  const [systemRole, setSystemRole] = useState("team_member");
   const queryClient = useQueryClient();
 
   const createMemberMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("team_members").insert({
-        name,
-        email,
-        role: role || null,
-      });
+      // Create team member
+      const { data: newMember, error } = await supabase
+        .from("team_members")
+        .insert({
+          name,
+          email,
+          role: role || null,
+        })
+        .select()
+        .single();
       if (error) throw error;
+
+      // Assign system role
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert([{
+          user_id: newMember.id,
+          role: systemRole as "team_member" | "team_lead" | "manager",
+        }]);
+      if (roleError) throw roleError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
       toast.success("Team member added successfully");
       resetForm();
       onOpenChange(false);
@@ -53,6 +76,7 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
     setName("");
     setEmail("");
     setRole("");
+    setSystemRole("team_member");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -99,13 +123,26 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="role">Role (Optional)</Label>
+              <Label htmlFor="role">Job Title (Optional)</Label>
               <Input
                 id="role"
                 placeholder="e.g., Developer, Designer"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="systemRole">Permission Level</Label>
+              <Select value={systemRole} onValueChange={setSystemRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="team_member">Team Member</SelectItem>
+                  <SelectItem value="team_lead">Team Lead</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
