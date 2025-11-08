@@ -70,29 +70,33 @@ export function FileCard({ file, onDelete }: FileCardProps) {
   const isPDF = file.file_type === "application/pdf";
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-lg transition-all hover:scale-[1.02] border-2">
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <FileText className="h-6 w-6 text-primary" />
+          <div className="p-3 bg-primary/20 rounded-xl">
+            <FileText className="h-7 w-7 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground truncate">{file.name}</h3>
-            <p className="text-xs text-muted-foreground">
+            <h3 className="font-semibold text-foreground text-base truncate">{file.name}</h3>
+            <p className="text-sm text-muted-foreground font-medium">
               {formatFileSize(file.file_size)}
             </p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pb-3">
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2">
           {file.file_access && file.file_access.length > 0 && (
-            <Badge variant="outline" className="text-xs">
-              {file.file_access[0].access_level.replace("_", " ")}
+            <Badge variant="secondary" className="text-xs font-semibold">
+              {file.file_access[0].access_level.replace("_", " ").toUpperCase()}
             </Badge>
           )}
-          <p className="text-muted-foreground">
-            {new Date(file.created_at).toLocaleDateString()}
+          <p className="text-sm text-muted-foreground font-medium">
+            📅 {new Date(file.created_at).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })}
           </p>
         </div>
       </CardContent>

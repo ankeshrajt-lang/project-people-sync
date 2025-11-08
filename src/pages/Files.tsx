@@ -184,30 +184,32 @@ export default function Files() {
           <p className="text-muted-foreground">Loading...</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {folders?.map((folder) => (
-            <FolderCard
-              key={folder.id}
-              folder={folder}
-              onDelete={() => deleteFolderMutation.mutate(folder.id)}
-              onOpen={() => setCurrentFolderId(folder.id)}
-            />
-          ))}
-          {filteredFiles?.map((file) => (
-            <FileCard
-              key={file.id}
-              file={file}
-              onDelete={() => deleteFileMutation.mutate({ id: file.id, filePath: file.file_path })}
-            />
-          ))}
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {folders?.map((folder) => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                onDelete={() => deleteFolderMutation.mutate(folder.id)}
+                onOpen={() => setCurrentFolderId(folder.id)}
+              />
+            ))}
+            {filteredFiles?.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                onDelete={() => deleteFileMutation.mutate({ id: file.id, filePath: file.file_path })}
+              />
+            ))}
+          </div>
           {(!folders || folders.length === 0) && (!filteredFiles || filteredFiles.length === 0) && (
-            <div className="col-span-full text-center py-12">
+            <div className="text-center py-12">
               <p className="text-muted-foreground">
                 No folders or files yet. Create a folder or upload your first file to get started!
               </p>
             </div>
           )}
-        </div>
+        </>
       )}
 
       <FolderDialog

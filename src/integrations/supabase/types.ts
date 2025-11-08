@@ -450,6 +450,10 @@ export type Database = {
         Args: { _file_id: string; _user_id: string }
         Returns: boolean
       }
+      user_can_view_folder: {
+        Args: { _folder_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_access_level: {
         Args: {
           _required_level: Database["public"]["Enums"]["access_level"]
