@@ -41,8 +41,10 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
       if (!session.session?.user) throw new Error("Not authenticated");
 
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      // Sanitize filename: remove spaces and special characters
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = `${Date.now()}-${sanitizedName}`;
+      const filePath = fileName;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage

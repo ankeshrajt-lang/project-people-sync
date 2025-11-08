@@ -446,6 +446,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_can_view_file: {
+        Args: { _file_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_access_level: {
         Args: {
           _required_level: Database["public"]["Enums"]["access_level"]
