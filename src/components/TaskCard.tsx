@@ -42,18 +42,18 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubta
   const getPriorityColor = (priority: string | null) => {
     switch (priority) {
       case "high":
-        return "bg-destructive text-destructive-foreground";
+        return "bg-red-100 text-red-700 border-red-300";
       case "medium":
-        return "bg-warning text-warning-foreground";
+        return "bg-amber-100 text-amber-700 border-amber-300";
       case "low":
-        return "bg-success text-success-foreground";
+        return "bg-emerald-100 text-emerald-700 border-emerald-300";
       default:
-        return "bg-muted text-muted-foreground";
+        return "bg-slate-100 text-slate-700 border-slate-300";
     }
   };
 
   return (
-    <Card className={`hover:shadow-md transition-shadow ${isSubtask ? 'border-l-4 border-l-primary/50 bg-muted/30' : ''}`}>
+    <Card className={`hover:shadow-md transition-shadow ${isSubtask ? 'border-l-4 border-l-primary/30 bg-primary/5' : 'bg-card/50 backdrop-blur-sm'}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -69,7 +69,7 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubta
           </div>
           <Badge
             variant="outline"
-            className={`flex-shrink-0 ${isActive ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
+            className={`flex-shrink-0 ${isActive ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-green-50 border-green-300 text-green-700"}`}
           >
             {isActive ? "Active" : "Completed"}
           </Badge>
@@ -84,7 +84,7 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubta
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {task.priority && (
-              <Badge className={getPriorityColor(task.priority)}>
+              <Badge variant="outline" className={getPriorityColor(task.priority)}>
                 {task.priority}
               </Badge>
             )}

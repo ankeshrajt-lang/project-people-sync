@@ -209,6 +209,56 @@ export type Database = {
           },
         ]
       }
+      interviews: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_minutes: number | null
+          id: string
+          interviewee_id: string | null
+          interviewer_name: string | null
+          notes: string | null
+          scheduled_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          id?: string
+          interviewee_id?: string | null
+          interviewer_name?: string | null
+          notes?: string | null
+          scheduled_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          id?: string
+          interviewee_id?: string | null
+          interviewer_name?: string | null
+          notes?: string | null
+          scheduled_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviews_interviewee_id_fkey"
+            columns: ["interviewee_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_requests: {
         Row: {
           created_at: string

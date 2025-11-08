@@ -11,6 +11,7 @@ import Team from "./pages/Team";
 import Leaves from "./pages/Leaves";
 import Attendance from "./pages/Attendance";
 import Files from "./pages/Files";
+import Resources from "./pages/Resources";
 import Auth from "./pages/Auth";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/leaves" element={<ProtectedRoute><Layout><Leaves /></Layout></ProtectedRoute>} />
           <Route path="/attendance" element={<ProtectedRoute><Layout><Attendance /></Layout></ProtectedRoute>} />
           <Route path="/files" element={<ProtectedRoute><Layout><Files /></Layout></ProtectedRoute>} />
+          <Route path="/resources" element={<ProtectedRoute><Layout><Resources /></Layout></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
