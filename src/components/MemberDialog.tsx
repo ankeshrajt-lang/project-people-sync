@@ -52,7 +52,7 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
         .from("user_roles")
         .insert([{
           user_id: newMember.id,
-          role: systemRole as "team_member" | "team_lead" | "manager",
+          role: systemRole as "team_member" | "team_lead" | "manager" | "admin",
         }]);
       if (roleError) throw roleError;
     },
@@ -141,6 +141,7 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
                   <SelectItem value="team_member">Team Member</SelectItem>
                   <SelectItem value="team_lead">Team Lead</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

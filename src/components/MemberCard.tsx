@@ -39,6 +39,7 @@ export function MemberCard({ member, onDelete }: MemberCardProps) {
   const getRoleBadge = (role?: string) => {
     if (!role) return null;
     const config: Record<string, { label: string; className: string }> = {
+      admin: { label: "Admin", className: "bg-destructive text-destructive-foreground" },
       manager: { label: "Manager", className: "bg-primary text-primary-foreground" },
       team_lead: { label: "Team Lead", className: "bg-accent text-accent-foreground" },
       team_member: { label: "Team Member", className: "bg-muted text-muted-foreground" },
