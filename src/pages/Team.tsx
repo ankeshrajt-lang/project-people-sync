@@ -5,10 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { MemberCard } from "@/components/MemberCard";
 import { MemberDialog } from "@/components/MemberDialog";
+import { EditMemberDialog } from "@/components/EditMemberDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export default function Team() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editMember, setEditMember] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: members, isLoading } = useQuery({
@@ -54,10 +59,12 @@ export default function Team() {
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Team</h2>
           <p className="text-muted-foreground">Manage your team members</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Member
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Member
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -71,6 +78,10 @@ export default function Team() {
               key={member.id}
               member={member}
               onDelete={() => deleteMemberMutation.mutate(member.id)}
+              onEdit={isAdmin ? () => {
+                setEditMember(member);
+                setIsEditDialogOpen(true);
+              } : undefined}
             />
           ))}
           {(!members || members.length === 0) && (
@@ -84,6 +95,11 @@ export default function Team() {
       )}
 
       <MemberDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <EditMemberDialog 
+        open={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen} 
+        member={editMember}
+      />
     </div>
   );
 }

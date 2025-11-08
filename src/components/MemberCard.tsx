@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Trash2, Shield } from "lucide-react";
+import { Mail, Trash2, Shield, Edit } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +25,10 @@ interface MemberCardProps {
     user_roles?: Array<{ role: string }>;
   };
   onDelete: () => void;
+  onEdit?: () => void;
 }
 
-export function MemberCard({ member, onDelete }: MemberCardProps) {
+export function MemberCard({ member, onDelete, onEdit }: MemberCardProps) {
   const initials = member.name
     .split(" ")
     .map((n) => n[0])
@@ -80,7 +81,13 @@ export function MemberCard({ member, onDelete }: MemberCardProps) {
           <span className="truncate">{member.email}</span>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end pt-3 border-t border-border">
+      <CardFooter className="flex justify-end gap-2 pt-3 border-t border-border">
+        {onEdit && (
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        )}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">

@@ -150,6 +150,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_history: {
         Row: {
           action: string
@@ -241,6 +268,7 @@ export type Database = {
       }
       team_members: {
         Row: {
+          auth_user_id: string | null
           avatar_url: string | null
           created_at: string
           department: string | null
@@ -250,6 +278,7 @@ export type Database = {
           role: string | null
         }
         Insert: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           created_at?: string
           department?: string | null
@@ -259,6 +288,7 @@ export type Database = {
           role?: string | null
         }
         Update: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           created_at?: string
           department?: string | null
