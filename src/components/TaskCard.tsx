@@ -152,10 +152,11 @@ export function TaskCard({ task, onStatusChange, onDelete, onEdit, onCreateSubta
               variant="ghost"
               size="sm"
               onClick={onCreateSubtask}
-              className="gap-2"
-              title="Create subtask"
+              className="gap-2 text-primary"
+              title="Add subtask"
             >
               <Plus className="h-4 w-4" />
+              <span className="text-xs">Subtask</span>
             </Button>
           )}
         </div>
