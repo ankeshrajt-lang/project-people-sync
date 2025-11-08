@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Team from "./pages/Team";
 import Leaves from "./pages/Leaves";
+import Attendance from "./pages/Attendance";
 import Files from "./pages/Files";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/team" element={<Team />} />
           <Route path="/leaves" element={<Leaves />} />
+          <Route path="/attendance" element={<Attendance />} />
           <Route path="/files" element={<Files />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

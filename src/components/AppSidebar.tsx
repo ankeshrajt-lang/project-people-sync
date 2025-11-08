@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, Users, FolderOpen } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Users, FolderOpen, CalendarCheck, CalendarDays } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -18,6 +18,8 @@ const items = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Team", url: "/team", icon: Users },
   { title: "Files", url: "/files", icon: FolderOpen },
+  { title: "Leaves", url: "/leaves", icon: CalendarCheck },
+  { title: "Attendance", url: "/attendance", icon: CalendarDays },
 ];
 
 export function AppSidebar() {
