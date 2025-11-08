@@ -19,19 +19,35 @@ export default function Team() {
   const { data: members, isLoading } = useQuery({
     queryKey: ["team_members"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: teamMembers, error } = await supabase
         .from("team_members")
-        .select(`
-          *,
-          user_roles(role)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
+      
       if (error) throw error;
-      // Transform the data to handle array vs single object
-      return data?.map(member => ({
-        ...member,
-        user_roles: Array.isArray(member.user_roles) ? member.user_roles : member.user_roles ? [member.user_roles] : []
-      }));
+
+      // Fetch user roles separately for members with auth_user_id
+      const membersWithRoles = await Promise.all(
+        (teamMembers || []).map(async (member) => {
+          if (member.auth_user_id) {
+            const { data: roles } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", member.auth_user_id);
+            
+            return {
+              ...member,
+              user_roles: roles || []
+            };
+          }
+          return {
+            ...member,
+            user_roles: []
+          };
+        })
+      );
+
+      return membersWithRoles;
     },
   });
 
