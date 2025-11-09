@@ -61,8 +61,8 @@ export default function TeamChat() {
     // Update immediately
     updateLastSeen();
 
-    // Update every 2 minutes
-    const interval = setInterval(updateLastSeen, 2 * 60 * 1000);
+    // Update every 30 seconds for real-time presence
+    const interval = setInterval(updateLastSeen, 30 * 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -70,6 +70,7 @@ export default function TeamChat() {
   // Fetch team members
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ["team_members"],
+    refetchInterval: 10000, // Refresh every 10 seconds for online status
     queryFn: async () => {
       const { data: teamMembers, error } = await supabase
         .from("team_members")
