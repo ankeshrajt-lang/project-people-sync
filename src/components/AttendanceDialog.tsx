@@ -41,18 +41,6 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
   const [notes, setNotes] = useState("");
   const queryClient = useQueryClient();
 
-  // Populate form when editing
-  useEffect(() => {
-    if (record) {
-      setEmployeeId(record.employee_id);
-      setDate(new Date(record.date));
-      setStatus(record.status);
-      setCheckInTime(record.check_in_time || "");
-      setCheckOutTime(record.check_out_time || "");
-      setNotes(record.notes || "");
-    }
-  }, [record]);
-
   const resetForm = () => {
     setEmployeeId("");
     setDate(new Date());
@@ -61,6 +49,22 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
     setCheckOutTime("");
     setNotes("");
   };
+
+  // Populate form when editing or reset when dialog opens/closes
+  useEffect(() => {
+    if (open && record) {
+      // Editing mode - populate form
+      setEmployeeId(record.employee_id);
+      setDate(new Date(record.date));
+      setStatus(record.status);
+      setCheckInTime(record.check_in_time || "");
+      setCheckOutTime(record.check_out_time || "");
+      setNotes(record.notes || "");
+    } else if (open && !record) {
+      // New entry mode - reset form
+      resetForm();
+    }
+  }, [open, record]);
 
   const createAttendanceMutation = useMutation({
     mutationFn: async (newAttendance: any) => {
