@@ -10,6 +10,7 @@ import Tasks from "./pages/Tasks";
 import TeamChat from "./pages/TeamChat";
 import Attendance from "./pages/Attendance";
 import FilesResources from "./pages/FilesResources";
+import Consultants from "./pages/Consultants";
 import Auth from "./pages/Auth";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/team" element={<ProtectedRoute><Layout><TeamChat /></Layout></ProtectedRoute>} />
           <Route path="/attendance" element={<ProtectedRoute><Layout><Attendance /></Layout></ProtectedRoute>} />
           <Route path="/files" element={<ProtectedRoute><Layout><FilesResources /></Layout></ProtectedRoute>} />
+          <Route path="/consultants" element={<ProtectedRoute><Layout><Consultants /></Layout></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

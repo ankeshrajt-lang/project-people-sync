@@ -149,6 +149,69 @@ export type Database = {
           },
         ]
       }
+      consultants: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_of_birth: string | null
+          dice_url: string | null
+          drivers_license_expiry: string | null
+          drivers_license_number: string | null
+          drivers_license_state: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          indeed_url: string | null
+          linkedin_url: string | null
+          monster_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          ziprecruiter_url: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          dice_url?: string | null
+          drivers_license_expiry?: string | null
+          drivers_license_number?: string | null
+          drivers_license_state?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          indeed_url?: string | null
+          linkedin_url?: string | null
+          monster_url?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          ziprecruiter_url?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          dice_url?: string | null
+          drivers_license_expiry?: string | null
+          drivers_license_number?: string | null
+          drivers_license_state?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          indeed_url?: string | null
+          linkedin_url?: string | null
+          monster_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          ziprecruiter_url?: string | null
+        }
+        Relationships: []
+      }
       files: {
         Row: {
           created_at: string
@@ -236,6 +299,65 @@ export type Database = {
             columns: ["interviewee_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_applications: {
+        Row: {
+          career_url: string | null
+          company_name: string
+          consultant_id: string
+          created_at: string
+          date_applied: string | null
+          employment_type: string | null
+          id: string
+          jobs_applied_count: number | null
+          notes: string | null
+          resume_version: string | null
+          role: string | null
+          status: string
+          updated_at: string
+          work_type: string | null
+        }
+        Insert: {
+          career_url?: string | null
+          company_name: string
+          consultant_id: string
+          created_at?: string
+          date_applied?: string | null
+          employment_type?: string | null
+          id?: string
+          jobs_applied_count?: number | null
+          notes?: string | null
+          resume_version?: string | null
+          role?: string | null
+          status?: string
+          updated_at?: string
+          work_type?: string | null
+        }
+        Update: {
+          career_url?: string | null
+          company_name?: string
+          consultant_id?: string
+          created_at?: string
+          date_applied?: string | null
+          employment_type?: string | null
+          id?: string
+          jobs_applied_count?: number | null
+          notes?: string | null
+          resume_version?: string | null
+          role?: string | null
+          status?: string
+          updated_at?: string
+          work_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "consultants"
             referencedColumns: ["id"]
           },
         ]
