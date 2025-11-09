@@ -43,8 +43,16 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
   const createGroupMutation = useMutation({
     mutationFn: async () => {
       // Get current user
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw new Error("Failed to get session");
+      }
+      if (!session?.user) {
+        throw new Error("Not authenticated. Please log in again.");
+      }
+
+      console.log("Creating group as user:", session.user.id);
 
       // Create group
       const { data: group, error: groupError } = await supabase
@@ -57,11 +65,18 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
         .select()
         .single();
 
-      if (groupError) throw groupError;
+      if (groupError) {
+        console.error("Group creation error:", groupError);
+        throw groupError;
+      }
 
-      // Add creator as member
+      console.log("Group created:", group);
+
+      // Add creator as member automatically, plus selected members
       const membersToAdd = [session.user.id, ...selectedMembers];
       const uniqueMembers = [...new Set(membersToAdd)];
+
+      console.log("Adding members:", uniqueMembers);
 
       const { error: membersError } = await supabase
         .from("chat_group_members")
@@ -72,7 +87,12 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
           }))
         );
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error("Members error:", membersError);
+        throw membersError;
+      }
+
+      return group;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat_groups"] });
