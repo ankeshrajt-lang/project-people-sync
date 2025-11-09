@@ -51,7 +51,10 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
         .from("project-files")
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        throw new Error(`Storage upload failed: ${uploadError.message}`);
+      }
 
       // Save metadata to database
       const { data: fileRecord, error: dbError } = await supabase.from("files").insert({
@@ -63,17 +66,26 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
         uploaded_by: session.session.user.id,
       }).select().single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+        // Try to cleanup the uploaded file
+        await supabase.storage.from("project-files").remove([filePath]);
+        throw new Error(`Database error: ${dbError.message}`);
+      }
 
       // Create file access
       const { error: accessError } = await supabase
         .from("file_access")
-        .insert({
+        .insert([{
           file_id: fileRecord.id,
-          access_level: accessLevel,
-        } as any);
+          access_level: accessLevel as any,
+        }]);
 
-      if (accessError) throw accessError;
+      if (accessError) {
+        console.error("File access error:", accessError);
+        // Don't fail the whole operation if access level setting fails
+        toast.error("File uploaded but access level not set. Please update manually.");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
@@ -82,6 +94,7 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
       onOpenChange(false);
     },
     onError: (error: any) => {
+      console.error("Upload error:", error);
       toast.error(error.message || "Failed to upload file");
     },
   });
