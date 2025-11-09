@@ -109,47 +109,42 @@ export default function Tasks() {
     },
   });
 
-  const filteredTasks = tasks?.filter((task) => {
-    // Filter by status - check parent and subtasks
-    const statusMatches = filter === "all" || 
-      task.status === filter || 
-      (task.subtasks && task.subtasks.some((st: any) => st.status === filter));
-    
-    if (!statusMatches) return false;
-    
-    // Filter by role - check parent and subtasks
-    if (roleFilter !== "all") {
-      const parentMember = task.team_members ? members?.find(m => m.id === task.team_members?.id) : null;
-      const parentRole = parentMember?.user_roles?.[0]?.role;
-      const parentMatches = parentRole === roleFilter;
-      
-      const subtaskMatches = task.subtasks && task.subtasks.some((st: any) => {
-        const stMember = st.team_members ? members?.find(m => m.id === st.team_members?.id) : null;
-        const stRole = stMember?.user_roles?.[0]?.role;
-        return stRole === roleFilter;
-      });
-      
-      if (!parentMatches && !subtaskMatches) return false;
-    }
-    
-    return true;
-  }).map(task => ({
-    ...task,
-    // Filter subtasks if needed
-    subtasks: task.subtasks?.filter((st: any) => {
-      // Apply status filter to subtasks
+  // Filter tasks while preserving parent-child structure
+  const filteredTasks = tasks?.map(task => {
+    // Filter subtasks first
+    const filteredSubtasks = task.subtasks?.filter((st: any) => {
+      // Apply status filter
       if (filter !== "all" && st.status !== filter) return false;
       
-      // Apply role filter to subtasks
-      if (roleFilter !== "all") {
-        const stMember = st.team_members ? members?.find(m => m.id === st.team_members?.id) : null;
+      // Apply role filter
+      if (roleFilter !== "all" && st.team_members) {
+        const stMember = members?.find(m => m.id === st.team_members?.id);
         const stRole = stMember?.user_roles?.[0]?.role;
         if (stRole !== roleFilter) return false;
       }
       
       return true;
-    })
-  }));
+    }) || [];
+    
+    // Check if parent task matches filters
+    const parentStatusMatch = filter === "all" || task.status === filter;
+    const parentRoleMatch = roleFilter === "all" || (() => {
+      if (!task.team_members) return false;
+      const member = members?.find(m => m.id === task.team_members?.id);
+      return member?.user_roles?.[0]?.role === roleFilter;
+    })();
+    
+    // Show parent if:
+    // 1. Parent matches all filters, OR
+    // 2. At least one subtask is visible after filtering
+    const showParent = (parentStatusMatch && parentRoleMatch) || filteredSubtasks.length > 0;
+    
+    return {
+      ...task,
+      subtasks: filteredSubtasks,
+      _shouldShow: showParent
+    };
+  }).filter(task => task._shouldShow);
 
   const handleEdit = (task: any) => {
     setEditingTask({
