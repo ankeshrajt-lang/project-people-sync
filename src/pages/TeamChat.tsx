@@ -197,34 +197,59 @@ export default function TeamChat() {
 
   // Real-time subscription for messages
   useEffect(() => {
-    if (!selectedGroupId) return;
+    if (activeTab === "group" && selectedGroupId) {
+      const channel = supabase
+        .channel("chat_messages")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "chat_messages",
+            filter: `group_id=eq.${selectedGroupId}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["chat_messages", selectedGroupId] });
+            queryClient.invalidateQueries({ queryKey: ["chat_groups"] });
+          }
+        )
+        .subscribe();
 
-    const channel = supabase
-      .channel("chat_messages")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-          filter: `group_id=eq.${selectedGroupId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat_messages", selectedGroupId] });
-          queryClient.invalidateQueries({ queryKey: ["chat_groups"] });
-        }
-      )
-      .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } else if (activeTab === "direct" && selectedDirectChatId && currentUserId) {
+      const channel = supabase
+        .channel("direct_messages")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "direct_messages",
+          },
+          (payload: any) => {
+            // Only refresh if this message involves the current conversation
+            if (
+              (payload.new.sender_id === currentUserId && payload.new.receiver_id === selectedDirectChatId) ||
+              (payload.new.sender_id === selectedDirectChatId && payload.new.receiver_id === currentUserId)
+            ) {
+              queryClient.invalidateQueries({ queryKey: ["direct_messages", selectedDirectChatId] });
+            }
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedGroupId, queryClient]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [activeTab, selectedGroupId, selectedDirectChatId, currentUserId, queryClient]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, directMessages]);
 
   const deleteMemberMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -526,8 +551,116 @@ export default function TeamChat() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="direct" className="mt-0">
+          <div className="flex h-[calc(100vh-20rem)] gap-4">
+            {/* Direct Chat Users List */}
+            <Card className="w-80 flex flex-col">
+              <CardHeader>
+                <CardTitle>Direct Messages</CardTitle>
+                <CardDescription>Chat with team members</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 p-0">
+                <ScrollArea className="h-full">
+                  <div className="space-y-1 p-4">
+                    {members?.filter(m => m.auth_user_id && m.auth_user_id !== currentUserId).map((member) => {
+                      const isOnline = member.last_seen && 
+                        (Date.now() - new Date(member.last_seen).getTime()) < 5 * 60 * 1000;
+                      
+                      return (
+                        <button
+                          key={member.id}
+                          onClick={() => setSelectedDirectChatId(member.auth_user_id)}
+                          className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-accent ${
+                            selectedDirectChatId === member.auth_user_id ? "bg-primary text-primary-foreground" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-5 w-5" />
+                              </div>
+                              {isOnline && (
+                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{member.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Direct Chat Area */}
+            <Card className="flex-1 flex flex-col">
+              {selectedDirectChatId ? (
+                <>
+                  <CardHeader className="border-b">
+                    <CardTitle>
+                      {members?.find(m => m.auth_user_id === selectedDirectChatId)?.name || "Direct Chat"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 p-0 flex flex-col">
+                    <ScrollArea className="flex-1 p-4">
+                      <div className="space-y-4">
+                        {directMessages?.map((msg) => {
+                          const isOwnMessage = msg.sender_id === currentUserId;
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                            >
+                              <div
+                                className={`max-w-[70%] rounded-lg p-3 ${
+                                  isOwnMessage
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted"
+                                }`}
+                              >
+                                <p className="text-sm break-words">{msg.message}</p>
+                                <p className={`text-xs mt-1 ${isOwnMessage ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                  {format(new Date(msg.created_at), "HH:mm")}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    </ScrollArea>
+                    <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
+                      <Input
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1"
+                      />
+                      <Button type="submit" disabled={!message.trim() || sendMessageMutation.isPending}>
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </CardContent>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                    <p>Select a team member to start chatting</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </TabsContent>
+  </Tabs>
 
       <MemberDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
       <EditMemberDialog 

@@ -85,23 +85,44 @@ export function MemberCard({ member, onDelete, onEdit }: MemberCardProps) {
           <Mail className="h-4 w-4" />
           <span className="truncate">{member.email}</span>
         </div>
-        {member.last_seen && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>
-              Last seen {formatDistanceToNow(new Date(member.last_seen), { addSuffix: true })}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {isOnline && (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Online
+            </Badge>
+          )}
+          {member.last_seen && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>
+                {formatDistanceToNow(new Date(member.last_seen), { addSuffix: true })}
+              </span>
+            </div>
+          )}
+        </div>
       </CardContent>
-      <CardFooter className="flex justify-end gap-2 pt-3 border-t border-border">
-        {onEdit && (
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-        )}
-        <AlertDialog>
+      <CardFooter className="flex justify-between items-center pt-3 border-t border-border">
+        <div className="flex items-center gap-2">
+          {isOnline ? (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Online now
+            </Badge>
+          ) : member.last_seen && (
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(member.last_seen), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {onEdit && (
+            <Button variant="ghost" size="sm" onClick={onEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
               <Trash2 className="h-4 w-4 mr-2" />
@@ -123,6 +144,7 @@ export function MemberCard({ member, onDelete, onEdit }: MemberCardProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </div>
       </CardFooter>
     </Card>
   );
