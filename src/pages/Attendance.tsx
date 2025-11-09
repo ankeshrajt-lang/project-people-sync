@@ -2,18 +2,30 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Edit, Trash2 } from "lucide-react";
 import { AttendanceDialog } from "@/components/AttendanceDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes } from "date-fns";
 
 export default function Attendance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: members } = useQuery({
@@ -81,6 +93,59 @@ export default function Attendance() {
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
+  };
+
+  const calculateTotalHours = (checkIn: string | null, checkOut: string | null) => {
+    if (!checkIn || !checkOut) return "-";
+    
+    try {
+      const [inHour, inMin] = checkIn.split(":").map(Number);
+      const [outHour, outMin] = checkOut.split(":").map(Number);
+      
+      const inDate = new Date();
+      inDate.setHours(inHour, inMin, 0, 0);
+      
+      const outDate = new Date();
+      outDate.setHours(outHour, outMin, 0, 0);
+      
+      const diffMins = differenceInMinutes(outDate, inDate);
+      
+      if (diffMins < 0) return "-";
+      
+      const hours = Math.floor(diffMins / 60);
+      const minutes = diffMins % 60;
+      
+      return `${hours}h ${minutes}m`;
+    } catch (error) {
+      return "-";
+    }
+  };
+
+  const deleteAttendanceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("attendance").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      toast.success("Attendance record deleted");
+      setDeleteRecordId(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete attendance record");
+    },
+  });
+
+  const handleEdit = (record: any) => {
+    setEditingRecord(record);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingRecord(null);
+    }
   };
 
   const calculateStats = (attendance: any[]) => {
@@ -168,7 +233,9 @@ export default function Attendance() {
                     <TableHead>Status</TableHead>
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
+                    <TableHead>Hours Worked</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -178,12 +245,33 @@ export default function Attendance() {
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
                       <TableCell>{record.check_in_time || "-"}</TableCell>
                       <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{record.notes || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(record)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteRecordId(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {(!todayAttendance || todayAttendance.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for today
                       </TableCell>
                     </TableRow>
@@ -250,6 +338,8 @@ export default function Attendance() {
                     <TableHead>Status</TableHead>
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
+                    <TableHead>Hours Worked</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -260,11 +350,32 @@ export default function Attendance() {
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
                       <TableCell>{record.check_in_time || "-"}</TableCell>
                       <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(record)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteRecordId(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {(!weekAttendance || weekAttendance.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for this week
                       </TableCell>
                     </TableRow>
@@ -331,6 +442,8 @@ export default function Attendance() {
                     <TableHead>Status</TableHead>
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
+                    <TableHead>Hours Worked</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,11 +454,32 @@ export default function Attendance() {
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
                       <TableCell>{record.check_in_time || "-"}</TableCell>
                       <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(record)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteRecordId(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {(!monthAttendance || monthAttendance.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for this month
                       </TableCell>
                     </TableRow>
@@ -359,9 +493,30 @@ export default function Attendance() {
 
       <AttendanceDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={handleDialogClose}
         members={members || []}
+        record={editingRecord}
       />
+
+      <AlertDialog open={!!deleteRecordId} onOpenChange={(open) => !open && setDeleteRecordId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Attendance Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this attendance record? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteRecordId && deleteAttendanceMutation.mutate(deleteRecordId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

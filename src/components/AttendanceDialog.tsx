@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -29,9 +29,10 @@ interface AttendanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   members: any[];
+  record?: any;
 }
 
-export function AttendanceDialog({ open, onOpenChange, members }: AttendanceDialogProps) {
+export function AttendanceDialog({ open, onOpenChange, members, record }: AttendanceDialogProps) {
   const [employeeId, setEmployeeId] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [status, setStatus] = useState("present");
@@ -40,30 +41,17 @@ export function AttendanceDialog({ open, onOpenChange, members }: AttendanceDial
   const [notes, setNotes] = useState("");
   const queryClient = useQueryClient();
 
-  const createAttendanceMutation = useMutation({
-    mutationFn: async (newAttendance: any) => {
-      const { error } = await supabase
-        .from("attendance")
-        .upsert({
-          employee_id: newAttendance.employee_id,
-          date: newAttendance.date,
-          status: newAttendance.status,
-          check_in_time: newAttendance.check_in_time || null,
-          check_out_time: newAttendance.check_out_time || null,
-          notes: newAttendance.notes || null,
-        }, { onConflict: 'employee_id,date' });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["attendance"] });
-      toast.success("Attendance marked successfully");
-      onOpenChange(false);
-      resetForm();
-    },
-    onError: () => {
-      toast.error("Failed to mark attendance");
-    },
-  });
+  // Populate form when editing
+  useEffect(() => {
+    if (record) {
+      setEmployeeId(record.employee_id);
+      setDate(new Date(record.date));
+      setStatus(record.status);
+      setCheckInTime(record.check_in_time || "");
+      setCheckOutTime(record.check_out_time || "");
+      setNotes(record.notes || "");
+    }
+  }, [record]);
 
   const resetForm = () => {
     setEmployeeId("");
@@ -73,6 +61,48 @@ export function AttendanceDialog({ open, onOpenChange, members }: AttendanceDial
     setCheckOutTime("");
     setNotes("");
   };
+
+  const createAttendanceMutation = useMutation({
+    mutationFn: async (newAttendance: any) => {
+      if (record) {
+        // Update existing record
+        const { error } = await supabase
+          .from("attendance")
+          .update({
+            employee_id: newAttendance.employee_id,
+            date: newAttendance.date,
+            status: newAttendance.status,
+            check_in_time: newAttendance.check_in_time || null,
+            check_out_time: newAttendance.check_out_time || null,
+            notes: newAttendance.notes || null,
+          })
+          .eq("id", record.id);
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from("attendance")
+          .insert({
+            employee_id: newAttendance.employee_id,
+            date: newAttendance.date,
+            status: newAttendance.status,
+            check_in_time: newAttendance.check_in_time || null,
+            check_out_time: newAttendance.check_out_time || null,
+            notes: newAttendance.notes || null,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      toast.success(record ? "Attendance updated successfully" : "Attendance marked successfully");
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
+      toast.error(record ? "Failed to update attendance" : "Failed to mark attendance");
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +125,7 @@ export function AttendanceDialog({ open, onOpenChange, members }: AttendanceDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Mark Attendance</DialogTitle>
+          <DialogTitle>{record ? "Edit Attendance" : "Mark Attendance"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -193,7 +223,7 @@ export function AttendanceDialog({ open, onOpenChange, members }: AttendanceDial
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Mark Attendance</Button>
+            <Button type="submit">{record ? "Update Attendance" : "Mark Attendance"}</Button>
           </div>
         </form>
       </DialogContent>
