@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Send, Users as UsersIcon, MessageCircle, Edit, Trash2, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
 import { MemberCard } from "@/components/MemberCard";
 import { MemberDialog } from "@/components/MemberDialog";
 import { EditMemberDialog } from "@/components/EditMemberDialog";
@@ -581,12 +582,27 @@ export default function TeamChat() {
                                 <User className="h-5 w-5" />
                               </div>
                               {isOnline && (
-                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
+                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full animate-pulse" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{member.name}</p>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <p className="font-medium truncate">{member.name}</p>
+                                {isOnline && (
+                                  <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                                    Online
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                              {member.last_seen && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {isOnline 
+                                    ? "Active now" 
+                                    : `Last seen ${formatDistanceToNow(new Date(member.last_seen), { addSuffix: true })}`
+                                  }
+                                </p>
+                              )}
                             </div>
                           </div>
                         </button>
@@ -602,9 +618,27 @@ export default function TeamChat() {
               {selectedDirectChatId ? (
                 <>
                   <CardHeader className="border-b">
-                    <CardTitle>
-                      {members?.find(m => m.auth_user_id === selectedDirectChatId)?.name || "Direct Chat"}
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>
+                          {members?.find(m => m.auth_user_id === selectedDirectChatId)?.name || "Direct Chat"}
+                        </CardTitle>
+                        {(() => {
+                          const selectedMember = members?.find(m => m.auth_user_id === selectedDirectChatId);
+                          if (!selectedMember?.last_seen) return null;
+                          const isOnline = (Date.now() - new Date(selectedMember.last_seen).getTime()) < 5 * 60 * 1000;
+                          return (
+                            <CardDescription className="flex items-center gap-2 mt-1">
+                              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                              {isOnline 
+                                ? "Online now" 
+                                : `Last seen ${formatDistanceToNow(new Date(selectedMember.last_seen), { addSuffix: true })}`
+                              }
+                            </CardDescription>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="flex-1 p-0 flex flex-col">
                     <ScrollArea className="flex-1 p-4">
