@@ -63,18 +63,21 @@ export type Database = {
           group_id: string
           id: string
           joined_at: string
+          last_seen: string | null
           user_id: string
         }
         Insert: {
           group_id: string
           id?: string
           joined_at?: string
+          last_seen?: string | null
           user_id: string
         }
         Update: {
           group_id?: string
           id?: string
           joined_at?: string
+          last_seen?: string | null
           user_id?: string
         }
         Relationships: [
@@ -474,6 +477,18 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_group_creator: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      update_last_seen: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       access_level: "admin" | "manager" | "team_lead" | "team_member" | "public"

@@ -25,7 +25,7 @@ export default function Chat() {
     });
   }, []);
 
-  // Fetch user's groups
+  // Fetch user's groups with member info
   const { data: groups } = useQuery({
     queryKey: ["chat_groups"],
     queryFn: async () => {
@@ -33,7 +33,10 @@ export default function Chat() {
         .from("chat_groups")
         .select(`
           *,
-          chat_group_members(count)
+          chat_group_members(
+            user_id,
+            last_seen
+          )
         `)
         .order("updated_at", { ascending: false });
       if (error) throw error;
@@ -73,6 +76,25 @@ export default function Chat() {
     },
   });
 
+  // Update last seen when viewing a group
+  useEffect(() => {
+    if (!selectedGroupId || !currentUserId) return;
+
+    const updateLastSeen = async () => {
+      await supabase.rpc('update_last_seen', {
+        _group_id: selectedGroupId,
+        _user_id: currentUserId
+      });
+    };
+    
+    updateLastSeen();
+    
+    // Update every 30 seconds while viewing
+    const interval = setInterval(updateLastSeen, 30000);
+    
+    return () => clearInterval(interval);
+  }, [selectedGroupId, currentUserId]);
+
   // Real-time subscription for new messages
   useEffect(() => {
     if (!selectedGroupId) return;
@@ -89,6 +111,7 @@ export default function Chat() {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["chat_messages", selectedGroupId] });
+          queryClient.invalidateQueries({ queryKey: ["chat_groups"] });
         }
       )
       .subscribe();
@@ -150,27 +173,45 @@ export default function Chat() {
         <CardContent className="flex-1 p-0">
           <ScrollArea className="h-full">
             <div className="space-y-1 p-4">
-              {groups?.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() => setSelectedGroupId(group.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-accent ${
-                    selectedGroupId === group.id ? "bg-primary text-primary-foreground" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="h-5 w-5" />
+              {groups?.map((group) => {
+                const members = group.chat_group_members || [];
+                const onlineCount = members.filter((m: any) => {
+                  if (!m.last_seen) return false;
+                  const lastSeenTime = new Date(m.last_seen).getTime();
+                  const now = Date.now();
+                  return (now - lastSeenTime) < 60000; // Online if seen within 1 minute
+                }).length;
+
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => setSelectedGroupId(group.id)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors hover:bg-accent ${
+                      selectedGroupId === group.id ? "bg-primary text-primary-foreground" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium truncate">{group.name}</p>
+                          {onlineCount > 0 && (
+                            <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                              {onlineCount}
+                            </span>
+                          )}
+                        </div>
+                        {group.description && (
+                          <p className="text-sm text-muted-foreground truncate">{group.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{group.name}</p>
-                      {group.description && (
-                        <p className="text-sm text-muted-foreground truncate">{group.description}</p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
               {(!groups || groups.length === 0) && (
                 <div className="text-center py-8 text-muted-foreground">
                   <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
