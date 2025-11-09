@@ -23,8 +23,11 @@ serve(async (req) => {
       }
     );
 
-    // Default password for all users
-    const defaultPassword = "Staff2025!";
+    // Generate unique password for each user
+    const generatePassword = (name: string) => {
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      return `${name.split(' ')[0]}@${randomNum}`;
+    };
 
     // Get all team members
     const { data: teamMembers, error: fetchError } = await supabaseAdmin
@@ -42,10 +45,12 @@ serve(async (req) => {
       const userExists = existingUser?.users?.some((u) => u.email === member.email);
 
       if (!userExists) {
+        const userPassword = generatePassword(member.name);
+        
         // Create auth user
         const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: member.email,
-          password: defaultPassword,
+          password: userPassword,
           email_confirm: true,
           user_metadata: {
             full_name: member.name,
@@ -53,7 +58,7 @@ serve(async (req) => {
         });
 
         if (createError) {
-          results.push({ email: member.email, status: "error", error: createError.message });
+          results.push({ email: member.email, name: member.name, status: "error", error: createError.message });
           continue;
         }
 
@@ -65,20 +70,19 @@ serve(async (req) => {
             .eq("id", member.id);
 
           if (updateError) {
-            results.push({ email: member.email, status: "linked_error", error: updateError.message });
+            results.push({ email: member.email, name: member.name, password: userPassword, status: "linked_error", error: updateError.message });
           } else {
-            results.push({ email: member.email, status: "created", userId: authUser.user.id });
+            results.push({ email: member.email, name: member.name, password: userPassword, status: "created", userId: authUser.user.id });
           }
         }
       } else {
-        results.push({ email: member.email, status: "exists" });
+        results.push({ email: member.email, name: member.name, status: "exists" });
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        defaultPassword,
         results,
       }),
       {

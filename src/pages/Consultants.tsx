@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,8 @@ export default function Consultants() {
   const [editingJob, setEditingJob] = useState<any>(null);
   const [cloneFromId, setCloneFromId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch consultants
@@ -96,9 +99,32 @@ export default function Consultants() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["job_applications"] });
       toast.success("Job application deleted successfully");
+      setSelectedJobs(new Set());
+      setSelectAll(false);
     },
     onError: () => {
       toast.error("Failed to delete job application");
+    },
+  });
+
+  // Bulk delete job applications mutation
+  const bulkDeleteJobsMutation = useMutation({
+    mutationFn: async (jobIds: string[]) => {
+      const { error } = await supabase
+        .from("job_applications")
+        .delete()
+        .in("id", jobIds);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job_applications"] });
+      toast.success(`${selectedJobs.size} job applications deleted successfully`);
+      setSelectedJobs(new Set());
+      setSelectAll(false);
+    },
+    onError: () => {
+      toast.error("Failed to delete job applications");
     },
   });
 
@@ -240,6 +266,37 @@ export default function Consultants() {
     return job.status.toLowerCase() === statusFilter.toLowerCase();
   });
 
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedJobs(new Set());
+      setSelectAll(false);
+    } else {
+      setSelectedJobs(new Set(filteredJobs?.map(job => job.id) || []));
+      setSelectAll(true);
+    }
+  };
+
+  const handleSelectJob = (jobId: string) => {
+    const newSelected = new Set(selectedJobs);
+    if (newSelected.has(jobId)) {
+      newSelected.delete(jobId);
+    } else {
+      newSelected.add(jobId);
+    }
+    setSelectedJobs(newSelected);
+    setSelectAll(newSelected.size === filteredJobs?.length);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedJobs.size === 0) {
+      toast.error("Please select at least one job application to delete");
+      return;
+    }
+    if (confirm(`Are you sure you want to delete ${selectedJobs.size} job application(s)?`)) {
+      bulkDeleteJobsMutation.mutate(Array.from(selectedJobs));
+    }
+  };
+
   const selectedConsultant = consultants?.find((c) => c.id === selectedConsultantId);
 
   return (
@@ -348,6 +405,17 @@ export default function Consultants() {
                     <Badge variant="outline">{filteredJobs?.length || 0} jobs</Badge>
                   </div>
                   <div className="flex gap-2">
+                    {selectedJobs.size > 0 && (
+                      <Button
+                        onClick={handleBulkDelete}
+                        disabled={bulkDeleteJobsMutation.isPending}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Selected ({selectedJobs.size})
+                      </Button>
+                    )}
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-[150px]">
                         <SelectValue placeholder="Filter status" />
@@ -405,6 +473,12 @@ export default function Consultants() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-[50px]">
+                            <Checkbox
+                              checked={selectAll}
+                              onCheckedChange={handleSelectAll}
+                            />
+                          </TableHead>
                           <TableHead>Company</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Role</TableHead>
@@ -417,6 +491,12 @@ export default function Consultants() {
                       <TableBody>
                         {filteredJobs?.map((job) => (
                           <TableRow key={job.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedJobs.has(job.id)}
+                                onCheckedChange={() => handleSelectJob(job.id)}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-2">
                                 {job.company_name}
