@@ -30,6 +30,16 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
   const [monsterUrl, setMonsterUrl] = useState("");
   const [diceUrl, setDiceUrl] = useState("");
   const [ziprecruiterUrl, setZiprecruiterUrl] = useState("");
+  const [linkedinUsername, setLinkedinUsername] = useState("");
+  const [linkedinPassword, setLinkedinPassword] = useState("");
+  const [indeedUsername, setIndeedUsername] = useState("");
+  const [indeedPassword, setIndeedPassword] = useState("");
+  const [monsterUsername, setMonsterUsername] = useState("");
+  const [monsterPassword, setMonsterPassword] = useState("");
+  const [diceUsername, setDiceUsername] = useState("");
+  const [dicePassword, setDicePassword] = useState("");
+  const [ziprecruiterUsername, setZiprecruiterUsername] = useState("");
+  const [ziprecruiterPassword, setZiprecruiterPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [driversLicenseNumber, setDriversLicenseNumber] = useState("");
   const [driversLicenseState, setDriversLicenseState] = useState("");
@@ -49,6 +59,16 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
       setMonsterUrl(consultant.monster_url || "");
       setDiceUrl(consultant.dice_url || "");
       setZiprecruiterUrl(consultant.ziprecruiter_url || "");
+      setLinkedinUsername(consultant.linkedin_username || "");
+      setLinkedinPassword(consultant.linkedin_password || "");
+      setIndeedUsername(consultant.indeed_username || "");
+      setIndeedPassword(consultant.indeed_password || "");
+      setMonsterUsername(consultant.monster_username || "");
+      setMonsterPassword(consultant.monster_password || "");
+      setDiceUsername(consultant.dice_username || "");
+      setDicePassword(consultant.dice_password || "");
+      setZiprecruiterUsername(consultant.ziprecruiter_username || "");
+      setZiprecruiterPassword(consultant.ziprecruiter_password || "");
       setDateOfBirth(consultant.date_of_birth || "");
       setDriversLicenseNumber(consultant.drivers_license_number || "");
       setDriversLicenseState(consultant.drivers_license_state || "");
@@ -70,6 +90,16 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
     setMonsterUrl("");
     setDiceUrl("");
     setZiprecruiterUrl("");
+    setLinkedinUsername("");
+    setLinkedinPassword("");
+    setIndeedUsername("");
+    setIndeedPassword("");
+    setMonsterUsername("");
+    setMonsterPassword("");
+    setDiceUsername("");
+    setDicePassword("");
+    setZiprecruiterUsername("");
+    setZiprecruiterPassword("");
     setDateOfBirth("");
     setDriversLicenseNumber("");
     setDriversLicenseState("");
@@ -90,6 +120,16 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
         monster_url: monsterUrl.trim() || null,
         dice_url: diceUrl.trim() || null,
         ziprecruiter_url: ziprecruiterUrl.trim() || null,
+        linkedin_username: linkedinUsername.trim() || null,
+        linkedin_password: linkedinPassword.trim() || null,
+        indeed_username: indeedUsername.trim() || null,
+        indeed_password: indeedPassword.trim() || null,
+        monster_username: monsterUsername.trim() || null,
+        monster_password: monsterPassword.trim() || null,
+        dice_username: diceUsername.trim() || null,
+        dice_password: dicePassword.trim() || null,
+        ziprecruiter_username: ziprecruiterUsername.trim() || null,
+        ziprecruiter_password: ziprecruiterPassword.trim() || null,
         date_of_birth: dateOfBirth || null,
         drivers_license_number: driversLicenseNumber.trim() || null,
         drivers_license_state: driversLicenseState.trim() || null,
@@ -189,37 +229,117 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
           </div>
 
           <div className="space-y-2">
-            <Label>Online Profiles</Label>
-            <Input
-              value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
-              placeholder="LinkedIn URL"
-              className="mt-1"
-            />
-            <Input
-              value={indeedUrl}
-              onChange={(e) => setIndeedUrl(e.target.value)}
-              placeholder="Indeed URL"
-              className="mt-1"
-            />
-            <Input
-              value={monsterUrl}
-              onChange={(e) => setMonsterUrl(e.target.value)}
-              placeholder="Monster URL"
-              className="mt-1"
-            />
-            <Input
-              value={diceUrl}
-              onChange={(e) => setDiceUrl(e.target.value)}
-              placeholder="Dice URL"
-              className="mt-1"
-            />
-            <Input
-              value={ziprecruiterUrl}
-              onChange={(e) => setZiprecruiterUrl(e.target.value)}
-              placeholder="ZipRecruiter URL"
-              className="mt-1"
-            />
+            <Label>Online Profiles & Credentials</Label>
+            
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label className="text-sm font-semibold">LinkedIn</Label>
+              <Input
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="LinkedIn URL"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={linkedinUsername}
+                  onChange={(e) => setLinkedinUsername(e.target.value)}
+                  placeholder="Username/Email"
+                />
+                <Input
+                  type="password"
+                  value={linkedinPassword}
+                  onChange={(e) => setLinkedinPassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label className="text-sm font-semibold">Indeed</Label>
+              <Input
+                value={indeedUrl}
+                onChange={(e) => setIndeedUrl(e.target.value)}
+                placeholder="Indeed URL"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={indeedUsername}
+                  onChange={(e) => setIndeedUsername(e.target.value)}
+                  placeholder="Username/Email"
+                />
+                <Input
+                  type="password"
+                  value={indeedPassword}
+                  onChange={(e) => setIndeedPassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label className="text-sm font-semibold">Monster</Label>
+              <Input
+                value={monsterUrl}
+                onChange={(e) => setMonsterUrl(e.target.value)}
+                placeholder="Monster URL"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={monsterUsername}
+                  onChange={(e) => setMonsterUsername(e.target.value)}
+                  placeholder="Username/Email"
+                />
+                <Input
+                  type="password"
+                  value={monsterPassword}
+                  onChange={(e) => setMonsterPassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label className="text-sm font-semibold">Dice</Label>
+              <Input
+                value={diceUrl}
+                onChange={(e) => setDiceUrl(e.target.value)}
+                placeholder="Dice URL"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={diceUsername}
+                  onChange={(e) => setDiceUsername(e.target.value)}
+                  placeholder="Username/Email"
+                />
+                <Input
+                  type="password"
+                  value={dicePassword}
+                  onChange={(e) => setDicePassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label className="text-sm font-semibold">ZipRecruiter</Label>
+              <Input
+                value={ziprecruiterUrl}
+                onChange={(e) => setZiprecruiterUrl(e.target.value)}
+                placeholder="ZipRecruiter URL"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={ziprecruiterUsername}
+                  onChange={(e) => setZiprecruiterUsername(e.target.value)}
+                  placeholder="Username/Email"
+                />
+                <Input
+                  type="password"
+                  value={ziprecruiterPassword}
+                  onChange={(e) => setZiprecruiterPassword(e.target.value)}
+                  placeholder="Password"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

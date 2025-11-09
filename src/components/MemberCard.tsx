@@ -2,7 +2,8 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Trash2, Shield, Edit } from "lucide-react";
+import { Mail, Trash2, Shield, Edit, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ interface MemberCardProps {
     email: string;
     role: string | null;
     avatar_url: string | null;
+    last_seen: string | null;
     user_roles?: Array<{ role: string }>;
   };
   onDelete: () => void;
@@ -76,10 +78,18 @@ export function MemberCard({ member, onDelete, onEdit }: MemberCardProps) {
         </div>
       </CardHeader>
       <CardContent className="pb-3">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Mail className="h-4 w-4" />
           <span className="truncate">{member.email}</span>
         </div>
+        {member.last_seen && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span>
+              Last seen {formatDistanceToNow(new Date(member.last_seen), { addSuffix: true })}
+            </span>
+          </div>
+        )}
       </CardContent>
       <CardFooter className="flex justify-end gap-2 pt-3 border-t border-border">
         {onEdit && (

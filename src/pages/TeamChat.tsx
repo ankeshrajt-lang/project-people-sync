@@ -45,6 +45,24 @@ export default function TeamChat() {
     });
   }, []);
 
+  // Update last_seen periodically when user is active
+  useEffect(() => {
+    const updateLastSeen = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        await supabase.rpc('update_team_member_last_seen');
+      }
+    };
+
+    // Update immediately
+    updateLastSeen();
+
+    // Update every 2 minutes
+    const interval = setInterval(updateLastSeen, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch team members
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ["team_members"],

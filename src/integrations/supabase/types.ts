@@ -154,61 +154,91 @@ export type Database = {
           address: string | null
           created_at: string
           date_of_birth: string | null
+          dice_password: string | null
           dice_url: string | null
+          dice_username: string | null
           drivers_license_expiry: string | null
           drivers_license_number: string | null
           drivers_license_state: string | null
           email: string | null
           full_name: string | null
           id: string
+          indeed_password: string | null
           indeed_url: string | null
+          indeed_username: string | null
+          linkedin_password: string | null
           linkedin_url: string | null
+          linkedin_username: string | null
+          monster_password: string | null
           monster_url: string | null
+          monster_username: string | null
           name: string
           notes: string | null
           phone: string | null
           updated_at: string
+          ziprecruiter_password: string | null
           ziprecruiter_url: string | null
+          ziprecruiter_username: string | null
         }
         Insert: {
           address?: string | null
           created_at?: string
           date_of_birth?: string | null
+          dice_password?: string | null
           dice_url?: string | null
+          dice_username?: string | null
           drivers_license_expiry?: string | null
           drivers_license_number?: string | null
           drivers_license_state?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          indeed_password?: string | null
           indeed_url?: string | null
+          indeed_username?: string | null
+          linkedin_password?: string | null
           linkedin_url?: string | null
+          linkedin_username?: string | null
+          monster_password?: string | null
           monster_url?: string | null
+          monster_username?: string | null
           name: string
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          ziprecruiter_password?: string | null
           ziprecruiter_url?: string | null
+          ziprecruiter_username?: string | null
         }
         Update: {
           address?: string | null
           created_at?: string
           date_of_birth?: string | null
+          dice_password?: string | null
           dice_url?: string | null
+          dice_username?: string | null
           drivers_license_expiry?: string | null
           drivers_license_number?: string | null
           drivers_license_state?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          indeed_password?: string | null
           indeed_url?: string | null
+          indeed_username?: string | null
+          linkedin_password?: string | null
           linkedin_url?: string | null
+          linkedin_username?: string | null
+          monster_password?: string | null
           monster_url?: string | null
+          monster_username?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          ziprecruiter_password?: string | null
           ziprecruiter_url?: string | null
+          ziprecruiter_username?: string | null
         }
         Relationships: []
       }
@@ -540,6 +570,7 @@ export type Database = {
           department: string | null
           email: string
           id: string
+          last_seen: string | null
           name: string
           role: string | null
         }
@@ -550,6 +581,7 @@ export type Database = {
           department?: string | null
           email: string
           id?: string
+          last_seen?: string | null
           name: string
           role?: string | null
         }
@@ -560,6 +592,7 @@ export type Database = {
           department?: string | null
           email?: string
           id?: string
+          last_seen?: string | null
           name?: string
           role?: string | null
         }
@@ -611,6 +644,7 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
       }
+      update_team_member_last_seen: { Args: never; Returns: undefined }
     }
     Enums: {
       access_level: "admin" | "manager" | "team_lead" | "team_member" | "public"
