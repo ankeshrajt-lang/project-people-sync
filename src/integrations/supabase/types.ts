@@ -58,42 +58,12 @@ export type Database = {
           },
         ]
       }
-      file_access: {
-        Row: {
-          access_level: Database["public"]["Enums"]["access_level"]
-          created_at: string
-          file_id: string
-          id: string
-        }
-        Insert: {
-          access_level: Database["public"]["Enums"]["access_level"]
-          created_at?: string
-          file_id: string
-          id?: string
-        }
-        Update: {
-          access_level?: Database["public"]["Enums"]["access_level"]
-          created_at?: string
-          file_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_access_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       files: {
         Row: {
           created_at: string
           file_path: string
           file_size: number | null
           file_type: string
-          folder_id: string | null
           id: string
           name: string
           task_id: string | null
@@ -104,7 +74,6 @@ export type Database = {
           file_path: string
           file_size?: number | null
           file_type: string
-          folder_id?: string | null
           id?: string
           name: string
           task_id?: string | null
@@ -115,20 +84,12 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           file_type?: string
-          folder_id?: string | null
           id?: string
           name?: string
           task_id?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "files_folder_id_fkey"
-            columns: ["folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "files_task_id_fkey"
             columns: ["task_id"]
@@ -141,70 +102,6 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "team_members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      folder_access: {
-        Row: {
-          access_level: Database["public"]["Enums"]["access_level"]
-          created_at: string
-          folder_id: string
-          id: string
-        }
-        Insert: {
-          access_level: Database["public"]["Enums"]["access_level"]
-          created_at?: string
-          folder_id: string
-          id?: string
-        }
-        Update: {
-          access_level?: Database["public"]["Enums"]["access_level"]
-          created_at?: string
-          folder_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "folder_access_folder_id_fkey"
-            columns: ["folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      folders: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
-          parent_folder_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name: string
-          parent_folder_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name?: string
-          parent_folder_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "folders_parent_folder_id_fkey"
-            columns: ["parent_folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
             referencedColumns: ["id"]
           },
         ]
@@ -496,21 +393,6 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
-      user_can_view_file: {
-        Args: { _file_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_can_view_folder: {
-        Args: { _folder_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_has_access_level: {
-        Args: {
-          _required_level: Database["public"]["Enums"]["access_level"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
     }
     Enums: {
       access_level: "admin" | "manager" | "team_lead" | "team_member" | "public"

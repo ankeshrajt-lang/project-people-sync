@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TaskFiles } from "./TaskFiles";
 import {
   Dialog,
   DialogContent,
@@ -286,11 +285,6 @@ export function TaskDialog({ open, onOpenChange, members, task, currentUserId, p
                 <p className="text-xs text-muted-foreground">
                   {files.length} file(s) selected
                 </p>
-              )}
-              {isEditing && task && (
-                <div className="mt-3">
-                  <TaskFiles taskId={task.id} />
-                </div>
               )}
             </div>
           </div>

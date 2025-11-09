@@ -12,24 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface FileUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folderId?: string | null;
 }
 
-export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDialogProps) {
+export function FileUploadDialog({ open, onOpenChange }: FileUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [accessLevel, setAccessLevel] = useState<string>("team_member");
   const queryClient = useQueryClient();
 
   const uploadFileMutation = useMutation({
@@ -57,34 +48,19 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
       }
 
       // Save metadata to database
-      const { data: fileRecord, error: dbError } = await supabase.from("files").insert({
+      const { error: dbError } = await supabase.from("files").insert({
         name: file.name,
         file_path: filePath,
         file_type: file.type,
         file_size: file.size,
-        folder_id: folderId,
         uploaded_by: session.session.user.id,
-      }).select().single();
+      });
 
       if (dbError) {
         console.error("Database insert error:", dbError);
         // Try to cleanup the uploaded file
         await supabase.storage.from("project-files").remove([filePath]);
         throw new Error(`Database error: ${dbError.message}`);
-      }
-
-      // Create file access
-      const { error: accessError } = await supabase
-        .from("file_access")
-        .insert([{
-          file_id: fileRecord.id,
-          access_level: accessLevel as any,
-        }]);
-
-      if (accessError) {
-        console.error("File access error:", accessError);
-        // Don't fail the whole operation if access level setting fails
-        toast.error("File uploaded but access level not set. Please update manually.");
       }
     },
     onSuccess: () => {
@@ -101,7 +77,6 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
 
   const resetForm = () => {
     setFile(null);
-    setAccessLevel("team_member");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -136,21 +111,6 @@ export function FileUploadDialog({ open, onOpenChange, folderId }: FileUploadDia
                   Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
                 </p>
               )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="access">Access Level</Label>
-              <Select value={accessLevel} onValueChange={setAccessLevel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select access level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public - Everyone can access</SelectItem>
-                  <SelectItem value="team_member">Team Member - All team members</SelectItem>
-                  <SelectItem value="team_lead">Team Lead - Team leads and above</SelectItem>
-                  <SelectItem value="manager">Manager - Managers and admins</SelectItem>
-                  <SelectItem value="admin">Admin - Admins only</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>

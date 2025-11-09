@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, FolderPlus, Calendar as CalendarIcon, Edit, Trash2 } from "lucide-react";
+import { Upload, Calendar as CalendarIcon, Edit, Trash2 } from "lucide-react";
 import { FileUploadDialog } from "@/components/FileUploadDialog";
-import { FolderDialog } from "@/components/FolderDialog";
 import { InterviewDialog } from "@/components/InterviewDialog";
 import { InterviewCalendar } from "@/components/InterviewCalendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +26,6 @@ import {
 
 export default function Resources() {
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
-  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const [isInterviewDialogOpen, setIsInterviewDialogOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState<any>(null);
   const queryClient = useQueryClient();
@@ -97,10 +95,6 @@ export default function Resources() {
           <p className="text-muted-foreground">Manage files, folders, and interview schedules</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="gap-2">
-            <FolderPlus className="h-4 w-4" />
-            New Folder
-          </Button>
           <Button onClick={() => setIsFileDialogOpen(true)} variant="outline" className="gap-2">
             <Upload className="h-4 w-4" />
             Upload File
@@ -250,7 +244,6 @@ export default function Resources() {
         </TabsContent>
       </Tabs>
 
-      <FolderDialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen} />
       <FileUploadDialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen} />
       <InterviewDialog
         open={isInterviewDialogOpen}

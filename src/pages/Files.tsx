@@ -2,122 +2,56 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, Filter, FolderPlus, ArrowLeft } from "lucide-react";
-import { FileCard } from "@/components/FileCard";
+import { Upload, Trash2, Download } from "lucide-react";
 import { FileUploadDialog } from "@/components/FileUploadDialog";
-import { FolderDialog } from "@/components/FolderDialog";
-import { FolderCard } from "@/components/FolderCard";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Files() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<string>("all");
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: folders } = useQuery({
-    queryKey: ["folders", currentFolderId],
-    queryFn: async () => {
-      let query = supabase
-        .from("folders")
-        .select(`
-          *,
-          folder_access(access_level)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (currentFolderId) {
-        query = query.eq("parent_folder_id", currentFolderId);
-      } else {
-        query = query.is("parent_folder_id", null);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
-
+  // Fetch all files
   const { data: files, isLoading } = useQuery({
-    queryKey: ["files", currentFolderId],
-    queryFn: async () => {
-      let query = supabase
-        .from("files")
-        .select(`
-          *,
-          file_access(access_level)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (currentFolderId) {
-        query = query.eq("folder_id", currentFolderId);
-      } else {
-        query = query.is("folder_id", null);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        console.error("Files query error:", error);
-        throw error;
-      }
-      return data;
-    },
-  });
-
-  const filteredFiles = files?.filter((file) => {
-    if (taskFilter === "all") return true;
-    if (taskFilter === "no-task") return !file.task_id;
-    return file.task_id === taskFilter;
-  });
-
-  const { data: tasks } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["files"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("tasks")
-        .select("id, title");
+        .from("files")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
-  const deleteFolderMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("folders").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["folders"] });
-      toast.success("Folder deleted successfully");
-    },
-    onError: () => {
-      toast.error("Failed to delete folder");
-    },
-  });
-
+  // Delete file mutation
   const deleteFileMutation = useMutation({
-    mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
+    mutationFn: async (file: { id: string; file_path: string }) => {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from("project-files")
-        .remove([filePath]);
-      
+        .remove([file.file_path]);
+
       if (storageError) throw storageError;
 
       // Delete from database
       const { error: dbError } = await supabase
         .from("files")
         .delete()
-        .eq("id", id);
-      
+        .eq("id", file.id);
+
       if (dbError) throw dbError;
     },
     onSuccess: () => {
@@ -129,99 +63,119 @@ export default function Files() {
     },
   });
 
+  const handleDownload = async (filePath: string, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from("project-files")
+      .download(filePath);
+
+    if (error) {
+      toast.error("Failed to download file");
+      return;
+    }
+
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return "Unknown";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <div className="flex items-center gap-2">
-            {currentFolderId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentFolderId(null)}
-                className="gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            )}
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Files</h2>
-          </div>
-          <p className="text-muted-foreground">Manage your project documents and files</p>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Files</h2>
+          <p className="text-muted-foreground">Upload and manage your files</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsFolderDialogOpen(true)} variant="outline" className="gap-2">
-            <FolderPlus className="h-4 w-4" />
-            New Folder
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload File
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <Filter className="h-5 w-5 text-muted-foreground" />
-        <Select value={taskFilter} onValueChange={setTaskFilter}>
-          <SelectTrigger className="w-[240px]">
-            <SelectValue placeholder="Filter by task" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Files</SelectItem>
-            <SelectItem value="no-task">Files without task</SelectItem>
-            {tasks?.map((task) => (
-              <SelectItem key={task.id} value={task.id}>
-                {task.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Button onClick={() => setIsFileDialogOpen(true)} className="gap-2">
+          <Upload className="h-4 w-4" />
+          Upload File
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Loading files...</p>
         </div>
+      ) : !files || files.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              No files uploaded yet. Click "Upload File" to add one.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {folders?.map((folder) => (
-              <FolderCard
-                key={folder.id}
-                folder={folder}
-                onDelete={() => deleteFolderMutation.mutate(folder.id)}
-                onOpen={() => setCurrentFolderId(folder.id)}
-              />
-            ))}
-            {filteredFiles?.map((file) => (
-              <FileCard
-                key={file.id}
-                file={file}
-                onDelete={() => deleteFileMutation.mutate({ id: file.id, filePath: file.file_path })}
-              />
-            ))}
-          </div>
-          {(!folders || folders.length === 0) && (!filteredFiles || filteredFiles.length === 0) && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                No folders or files yet. Create a folder or upload your first file to get started!
-              </p>
-            </div>
-          )}
-        </>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {files.map((file) => (
+            <Card key={file.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base line-clamp-2">{file.name}</CardTitle>
+                <CardDescription className="text-xs">
+                  {formatFileSize(file.file_size)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>Type: {file.file_type || "Unknown"}</p>
+                  <p>Uploaded: {format(new Date(file.created_at), "MMM d, yyyy")}</p>
+                </div>
+                <div className="flex gap-2 mt-4 pt-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownload(file.file_path, file.name)}
+                    className="flex-1"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Download
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete File</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{file.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteFileMutation.mutate({ id: file.id, file_path: file.file_path })}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      <FolderDialog
-        open={isFolderDialogOpen}
-        onOpenChange={setIsFolderDialogOpen}
-        parentFolderId={currentFolderId}
-      />
-      <FileUploadDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        folderId={currentFolderId}
-      />
+      <FileUploadDialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen} />
     </div>
   );
 }
