@@ -110,18 +110,46 @@ export default function Tasks() {
   });
 
   const filteredTasks = tasks?.filter((task) => {
-    // Filter by status
-    if (filter !== "all" && task.status !== filter) return false;
+    // Filter by status - check parent and subtasks
+    const statusMatches = filter === "all" || 
+      task.status === filter || 
+      (task.subtasks && task.subtasks.some((st: any) => st.status === filter));
     
-    // Filter by role
-    if (roleFilter !== "all" && task.team_members) {
-      const member = members?.find(m => m.id === task.team_members?.id);
-      const memberRole = member?.user_roles?.[0]?.role;
-      if (memberRole !== roleFilter) return false;
+    if (!statusMatches) return false;
+    
+    // Filter by role - check parent and subtasks
+    if (roleFilter !== "all") {
+      const parentMember = task.team_members ? members?.find(m => m.id === task.team_members?.id) : null;
+      const parentRole = parentMember?.user_roles?.[0]?.role;
+      const parentMatches = parentRole === roleFilter;
+      
+      const subtaskMatches = task.subtasks && task.subtasks.some((st: any) => {
+        const stMember = st.team_members ? members?.find(m => m.id === st.team_members?.id) : null;
+        const stRole = stMember?.user_roles?.[0]?.role;
+        return stRole === roleFilter;
+      });
+      
+      if (!parentMatches && !subtaskMatches) return false;
     }
     
     return true;
-  });
+  }).map(task => ({
+    ...task,
+    // Filter subtasks if needed
+    subtasks: task.subtasks?.filter((st: any) => {
+      // Apply status filter to subtasks
+      if (filter !== "all" && st.status !== filter) return false;
+      
+      // Apply role filter to subtasks
+      if (roleFilter !== "all") {
+        const stMember = st.team_members ? members?.find(m => m.id === st.team_members?.id) : null;
+        const stRole = stMember?.user_roles?.[0]?.role;
+        if (stRole !== roleFilter) return false;
+      }
+      
+      return true;
+    })
+  }));
 
   const handleEdit = (task: any) => {
     setEditingTask({
