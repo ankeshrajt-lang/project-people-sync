@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Copy, Edit, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Copy, Edit, Trash2, ExternalLink, Upload } from "lucide-react";
+import { remoteCompanies } from "@/utils/companyData";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export default function Consultants() {
   const [editingConsultant, setEditingConsultant] = useState<any>(null);
   const [editingJob, setEditingJob] = useState<any>(null);
   const [cloneFromId, setCloneFromId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const queryClient = useQueryClient();
 
   // Fetch consultants
@@ -97,6 +99,24 @@ export default function Consultants() {
     },
     onError: () => {
       toast.error("Failed to delete job application");
+    },
+  });
+
+  // Update job status mutation
+  const updateJobStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from("job_applications")
+        .update({ status })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job_applications"] });
+      toast.success("Status updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update status");
     },
   });
 
@@ -180,10 +200,45 @@ export default function Consultants() {
         return "bg-yellow-500";
       case "complete":
         return "bg-green-500";
+      case "yettostart":
+        return "bg-gray-500";
       default:
         return "bg-gray-500";
     }
   };
+
+  // Bulk add companies mutation
+  const bulkAddCompaniesMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedConsultantId) return;
+      
+      const jobsToAdd = remoteCompanies.map((company) => ({
+        consultant_id: selectedConsultantId,
+        company_name: company.name,
+        status: "yettostart",
+        career_url: company.url,
+        date_applied: new Date().toISOString().split('T')[0],
+      }));
+
+      const { error } = await supabase
+        .from("job_applications")
+        .insert(jobsToAdd);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job_applications"] });
+      toast.success(`Added ${remoteCompanies.length} companies successfully`);
+    },
+    onError: () => {
+      toast.error("Failed to add companies");
+    },
+  });
+
+  const filteredJobs = jobApplications?.filter((job) => {
+    if (statusFilter === "all") return true;
+    return job.status.toLowerCase() === statusFilter.toLowerCase();
+  });
 
   const selectedConsultant = consultants?.find((c) => c.id === selectedConsultantId);
 
@@ -290,9 +345,21 @@ export default function Consultants() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-4">
                     <h3 className="text-xl font-semibold">{selectedConsultant.name} - Job Applications</h3>
-                    <Badge variant="outline">{jobApplications?.length || 0} jobs</Badge>
+                    <Badge variant="outline">{filteredJobs?.length || 0} jobs</Badge>
                   </div>
                   <div className="flex gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Filter status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="yettostart">Yet to Start</SelectItem>
+                        <SelectItem value="applied">Applied</SelectItem>
+                        <SelectItem value="in progress">In Progress</SelectItem>
+                        <SelectItem value="complete">Complete</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <div className="flex items-center gap-2">
                       <Select value={cloneFromId} onValueChange={setCloneFromId}>
                         <SelectTrigger className="w-[180px]">
@@ -318,9 +385,17 @@ export default function Consultants() {
                         Clone
                       </Button>
                     </div>
-                    <Button onClick={() => setIsJobDialogOpen(true)} size="sm">
+                    <Button onClick={() => setIsJobDialogOpen(true)} size="sm" variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Job
+                    </Button>
+                    <Button 
+                      onClick={() => bulkAddCompaniesMutation.mutate()} 
+                      size="sm"
+                      disabled={bulkAddCompaniesMutation.isPending}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Add All Companies
                     </Button>
                   </div>
                 </div>
@@ -340,14 +415,14 @@ export default function Consultants() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {jobApplications?.map((job) => (
+                        {filteredJobs?.map((job) => (
                           <TableRow key={job.id}>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-2">
                                 {job.company_name}
                                 {job.career_url && (
                                   <a
-                                    href={job.career_url}
+                                    href={job.career_url.startsWith('http') ? job.career_url : `https://${job.career_url}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
@@ -358,9 +433,26 @@ export default function Consultants() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={getStatusColor(job.status)}>
-                                {job.status}
-                              </Badge>
+                              <Select
+                                value={job.status}
+                                onValueChange={(value) => 
+                                  updateJobStatusMutation.mutate({ id: job.id, status: value })
+                                }
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue>
+                                    <Badge className={getStatusColor(job.status)}>
+                                      {job.status}
+                                    </Badge>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="yettostart">Yet to Start</SelectItem>
+                                  <SelectItem value="Applied">Applied</SelectItem>
+                                  <SelectItem value="In Progress">In Progress</SelectItem>
+                                  <SelectItem value="Complete">Complete</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                             <TableCell>{job.role || "-"}</TableCell>
                             <TableCell>
@@ -407,7 +499,7 @@ export default function Consultants() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {(!jobApplications || jobApplications.length === 0) && (
+                        {(!filteredJobs || filteredJobs.length === 0) && (
                           <TableRow>
                             <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               No job applications yet. Add one to get started.

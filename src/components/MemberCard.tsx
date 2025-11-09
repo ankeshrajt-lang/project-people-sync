@@ -56,6 +56,9 @@ export function MemberCard({ member, onDelete, onEdit }: MemberCardProps) {
     );
   };
 
+  const isOnline = member.last_seen && 
+    (Date.now() - new Date(member.last_seen).getTime()) < 5 * 60 * 1000;
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">

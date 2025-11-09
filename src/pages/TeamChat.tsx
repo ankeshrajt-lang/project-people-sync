@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Send, Users as UsersIcon, MessageCircle, Edit, Trash2 } from "lucide-react";
+import { Plus, Send, Users as UsersIcon, MessageCircle, Edit, Trash2, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { MemberCard } from "@/components/MemberCard";
 import { MemberDialog } from "@/components/MemberDialog";
 import { EditMemberDialog } from "@/components/EditMemberDialog";
@@ -32,8 +33,10 @@ export default function TeamChat() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedDirectChatId, setSelectedDirectChatId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"group" | "direct">("group");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -122,7 +125,7 @@ export default function TeamChat() {
   // Fetch messages for selected group
   const { data: messages } = useQuery({
     queryKey: ["chat_messages", selectedGroupId],
-    enabled: !!selectedGroupId,
+    enabled: !!selectedGroupId && activeTab === "group",
     queryFn: async () => {
       const { data: messagesData, error: messagesError } = await supabase
         .from("chat_messages")
@@ -140,6 +143,33 @@ export default function TeamChat() {
         .in("auth_user_id", senderIds);
       
       if (teamError) throw teamError;
+      
+      return messagesData.map(msg => ({
+        ...msg,
+        sender: teamMembers?.find(tm => tm.auth_user_id === msg.sender_id)
+      }));
+    },
+  });
+
+  // Fetch direct messages
+  const { data: directMessages } = useQuery({
+    queryKey: ["direct_messages", selectedDirectChatId, currentUserId],
+    enabled: !!selectedDirectChatId && !!currentUserId && activeTab === "direct",
+    queryFn: async () => {
+      const { data: messagesData, error } = await supabase
+        .from("direct_messages")
+        .select("*")
+        .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${selectedDirectChatId}),and(sender_id.eq.${selectedDirectChatId},receiver_id.eq.${currentUserId})`)
+        .order("created_at", { ascending: true });
+      
+      if (error) throw error;
+      
+      const senderIds = [...new Set(messagesData.map(m => m.sender_id))];
+      
+      const { data: teamMembers } = await supabase
+        .from("team_members")
+        .select("auth_user_id, name, email")
+        .in("auth_user_id", senderIds);
       
       return messagesData.map(msg => ({
         ...msg,
@@ -227,19 +257,31 @@ export default function TeamChat() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async () => {
-      if (!message.trim() || !selectedGroupId || !currentUserId) return;
+      if (!message.trim() || !currentUserId) return;
 
-      const { error } = await supabase.from("chat_messages").insert({
-        group_id: selectedGroupId,
-        sender_id: currentUserId,
-        message: message.trim(),
-      });
-
-      if (error) throw error;
+      if (activeTab === "group" && selectedGroupId) {
+        const { error } = await supabase.from("chat_messages").insert({
+          group_id: selectedGroupId,
+          sender_id: currentUserId,
+          message: message.trim(),
+        });
+        if (error) throw error;
+      } else if (activeTab === "direct" && selectedDirectChatId) {
+        const { error } = await supabase.from("direct_messages").insert({
+          sender_id: currentUserId,
+          receiver_id: selectedDirectChatId,
+          message: message.trim(),
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["chat_messages", selectedGroupId] });
+      if (activeTab === "group") {
+        queryClient.invalidateQueries({ queryKey: ["chat_messages", selectedGroupId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["direct_messages", selectedDirectChatId] });
+      }
     },
     onError: () => {
       toast.error("Failed to send message");
@@ -310,7 +352,14 @@ export default function TeamChat() {
 
         {/* Chat Tab */}
         <TabsContent value="chat" className="mt-6">
-          <div className="flex h-[calc(100vh-16rem)] gap-4">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "group" | "direct")} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
+              <TabsTrigger value="group">Group Chat</TabsTrigger>
+              <TabsTrigger value="direct">Direct Messages</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="group" className="mt-0">
+              <div className="flex h-[calc(100vh-20rem)] gap-4">
             {/* Groups List */}
             <Card className="w-80 flex flex-col">
               <CardHeader>
@@ -478,6 +527,7 @@ export default function TeamChat() {
           </div>
         </TabsContent>
       </Tabs>
+    </TabsContent>
 
       <MemberDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
       <EditMemberDialog 
