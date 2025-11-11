@@ -121,24 +121,53 @@ export default function TeamChat() {
         .order("updated_at", { ascending: false });
       if (error) throw error;
       
-      // Fetch team member details for all group members
+      // Fetch member details for all group members
       const allUserIds = data?.flatMap(g => 
         g.chat_group_members?.map((m: any) => m.user_id) || []
       ) || [];
       
       if (allUserIds.length > 0) {
+        // First try team_members
         const { data: teamMembers } = await supabase
           .from("team_members")
           .select("auth_user_id, name, email, avatar_url")
           .in("auth_user_id", allUserIds);
         
+        // For users without team_member records, get from profiles
+        const teamMemberIds = teamMembers?.map(tm => tm.auth_user_id) || [];
+        const missingUserIds = allUserIds.filter(id => !teamMemberIds.includes(id));
+        
+        let profiles: any[] = [];
+        if (missingUserIds.length > 0) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("id, email, full_name, avatar_url")
+            .in("id", missingUserIds);
+          profiles = profileData || [];
+        }
+        
         // Map member details to groups
         return data?.map(group => ({
           ...group,
-          chat_group_members: group.chat_group_members?.map((m: any) => ({
-            ...m,
-            member_details: teamMembers?.find(tm => tm.auth_user_id === m.user_id)
-          }))
+          chat_group_members: group.chat_group_members?.map((m: any) => {
+            const teamMember = teamMembers?.find(tm => tm.auth_user_id === m.user_id);
+            const profile = profiles?.find(p => p.id === m.user_id);
+            
+            return {
+              ...m,
+              member_details: teamMember ? {
+                auth_user_id: teamMember.auth_user_id,
+                name: teamMember.name,
+                email: teamMember.email,
+                avatar_url: teamMember.avatar_url
+              } : profile ? {
+                auth_user_id: profile.id,
+                name: profile.full_name || profile.email,
+                email: profile.email,
+                avatar_url: profile.avatar_url
+              } : null
+            };
+          })
         }));
       }
       
