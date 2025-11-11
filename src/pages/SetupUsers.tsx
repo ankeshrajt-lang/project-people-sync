@@ -9,7 +9,7 @@ export default function SetupUsers() {
   const [results, setResults] = useState<any>(null);
   const [showPasswords, setShowPasswords] = useState(false);
 
-  const handleSetup = async () => {
+  const handleSetup = async (reset = false) => {
     setLoading(true);
     try {
       const response = await fetch(
@@ -19,6 +19,7 @@ export default function SetupUsers() {
           headers: {
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({ reset }),
         }
       );
 
@@ -26,12 +27,12 @@ export default function SetupUsers() {
 
       if (data.success) {
         setResults(data);
-        toast.success("Users created successfully!");
+        toast.success(reset ? "Passwords reset successfully!" : "Users created successfully!");
       } else {
-        toast.error(data.error || "Failed to create users");
+        toast.error(data.error || "Failed to process users");
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to create users");
+      toast.error(error.message || "Failed to process users");
     } finally {
       setLoading(false);
     }
@@ -43,18 +44,16 @@ export default function SetupUsers() {
         <CardHeader>
           <CardTitle className="text-2xl">User Setup</CardTitle>
           <CardDescription>
-            Create authentication accounts for all team members
+            Create or reset authentication accounts for all team members
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <h3 className="font-semibold mb-2">What this will do:</h3>
-            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-              <li>Create login accounts for all team members in the database</li>
-              <li>Generate unique passwords for each user</li>
-              <li>Link team member records to authentication accounts</li>
-              <li>Users can change their password after first login</li>
-            </ul>
+            <h3 className="font-semibold mb-2">Available Actions:</h3>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p><strong>Create New Users:</strong> Set up accounts for team members without auth access</p>
+              <p><strong>Reset All Passwords:</strong> Generate new passwords for all existing users</p>
+            </div>
           </div>
 
           {results && (
@@ -99,9 +98,9 @@ export default function SetupUsers() {
                                 </code>
                               )}
                             </td>
-                            <td className="p-3">
+                             <td className="p-3">
                               <span className={`text-sm ${
-                                result.status === "created" ? "text-green-600" : 
+                                result.status === "created" || result.status === "reset" ? "text-green-600" : 
                                 result.status === "exists" ? "text-blue-600" : 
                                 "text-red-600"
                               }`}>
@@ -119,14 +118,20 @@ export default function SetupUsers() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex justify-between gap-2">
           <Button variant="outline" onClick={() => window.location.href = "/auth"}>
             Go to Login
           </Button>
-          <Button onClick={handleSetup} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Setting up..." : "Create User Accounts"}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => handleSetup(false)} disabled={loading} variant="secondary">
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? "Processing..." : "Create New Users"}
+            </Button>
+            <Button onClick={() => handleSetup(true)} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? "Resetting..." : "Reset All Passwords"}
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </div>

@@ -23,6 +23,10 @@ serve(async (req) => {
       }
     );
 
+    // Get request body to check for reset flag
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const shouldReset = body.reset === true;
+
     // Generate unique password for each user
     const generatePassword = (name: string) => {
       const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -38,16 +42,30 @@ serve(async (req) => {
 
     const results = [];
 
-    // Create auth users for each team member
+    // Create or reset auth users for each team member
     for (const member of teamMembers || []) {
       // Check if user already exists
       const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-      const userExists = existingUser?.users?.some((u) => u.email === member.email);
+      const userExists = existingUser?.users?.find((u) => u.email === member.email);
 
-      if (!userExists) {
+      if (userExists && shouldReset) {
+        // Reset password for existing user
         const userPassword = generatePassword(member.name);
         
-        // Create auth user
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+          userExists.id,
+          { password: userPassword }
+        );
+
+        if (updateError) {
+          results.push({ email: member.email, name: member.name, status: "reset_error", error: updateError.message });
+        } else {
+          results.push({ email: member.email, name: member.name, password: userPassword, status: "reset", userId: userExists.id });
+        }
+      } else if (!userExists) {
+        // Create new user
+        const userPassword = generatePassword(member.name);
+        
         const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: member.email,
           password: userPassword,
