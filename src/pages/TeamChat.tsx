@@ -105,7 +105,7 @@ export default function TeamChat() {
     },
   });
 
-  // Fetch chat groups
+  // Fetch chat groups with member details
   const { data: groups } = useQuery({
     queryKey: ["chat_groups"],
     queryFn: async () => {
@@ -120,6 +120,28 @@ export default function TeamChat() {
         `)
         .order("updated_at", { ascending: false });
       if (error) throw error;
+      
+      // Fetch team member details for all group members
+      const allUserIds = data?.flatMap(g => 
+        g.chat_group_members?.map((m: any) => m.user_id) || []
+      ) || [];
+      
+      if (allUserIds.length > 0) {
+        const { data: teamMembers } = await supabase
+          .from("team_members")
+          .select("auth_user_id, name, email, avatar_url")
+          .in("auth_user_id", allUserIds);
+        
+        // Map member details to groups
+        return data?.map(group => ({
+          ...group,
+          chat_group_members: group.chat_group_members?.map((m: any) => ({
+            ...m,
+            member_details: teamMembers?.find(tm => tm.auth_user_id === m.user_id)
+          }))
+        }));
+      }
+      
       return data;
     },
   });
@@ -491,10 +513,43 @@ export default function TeamChat() {
               {selectedGroup ? (
                 <>
                   <CardHeader className="border-b">
-                    <CardTitle>{selectedGroup.name}</CardTitle>
-                    {selectedGroup.description && (
-                      <CardDescription>{selectedGroup.description}</CardDescription>
-                    )}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle>{selectedGroup.name}</CardTitle>
+                        {selectedGroup.description && (
+                          <CardDescription>{selectedGroup.description}</CardDescription>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 ml-4">
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedGroup.chat_group_members?.length || 0} members
+                        </Badge>
+                      </div>
+                    </div>
+                    {/* Members List */}
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Group Members:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedGroup.chat_group_members?.map((member: any) => {
+                          const isOnline = member.last_seen && 
+                            (Date.now() - new Date(member.last_seen).getTime()) < 60000;
+                          return (
+                            <div 
+                              key={member.user_id}
+                              className="flex items-center gap-1.5 bg-muted px-2 py-1 rounded-md text-xs"
+                            >
+                              <div className="relative">
+                                <User className="h-3 w-3" />
+                                {isOnline && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                )}
+                              </div>
+                              <span>{member.member_details?.name || member.member_details?.email || 'Unknown'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="flex-1 p-0 flex flex-col">
                     <ScrollArea className="flex-1 p-4">
