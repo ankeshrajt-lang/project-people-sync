@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes, differenceInDays, parseISO } from "date-fns";
 
 export default function Attendance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -164,8 +164,64 @@ export default function Attendance() {
       filtered = filtered.filter(a => a.status === selectedStatus);
     }
     
+    // Sort by date descending (most recent first)
+    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
     return filtered;
   };
+
+  const updateDefaultTimesMutation = useMutation({
+    mutationFn: async (records: any[]) => {
+      const updates = records.map(record => 
+        supabase
+          .from("attendance")
+          .update({
+            check_in_time: record.check_in_time || "18:00:00",
+            check_out_time: record.check_out_time || "00:00:00"
+          })
+          .eq("id", record.id)
+      );
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+    },
+  });
+
+  useEffect(() => {
+    const checkAndUpdateTimes = async () => {
+      const allAttendance = [
+        ...(todayAttendance || []),
+        ...(weekAttendance || []),
+        ...(monthAttendance || [])
+      ];
+
+      const recordsNeedingUpdate = allAttendance.filter(record => {
+        // Check if present without times
+        const needsDefaultTimes = record.status === "present" && 
+          (!record.check_in_time || !record.check_out_time);
+
+        // Check if end time is missing and more than 1 day has passed
+        const needsEndTime = record.check_in_time && 
+          !record.check_out_time && 
+          differenceInDays(new Date(), parseISO(record.date)) > 1;
+
+        return needsDefaultTimes || needsEndTime;
+      });
+
+      // Remove duplicates by id
+      const uniqueRecords = recordsNeedingUpdate.filter(
+        (record, index, self) => 
+          index === self.findIndex(r => r.id === record.id)
+      );
+
+      if (uniqueRecords.length > 0) {
+        updateDefaultTimesMutation.mutate(uniqueRecords);
+      }
+    };
+
+    checkAndUpdateTimes();
+  }, [todayAttendance, weekAttendance, monthAttendance]);
 
   const calculateStats = (attendance: any[]) => {
     const present = attendance?.filter((a) => a.status === "present").length || 0;
