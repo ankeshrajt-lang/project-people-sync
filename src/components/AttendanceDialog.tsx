@@ -68,22 +68,22 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
 
   const createAttendanceMutation = useMutation({
     mutationFn: async (newAttendance: any) => {
-      if (record) {
-        // Update existing record
+      if (record?.id) {
+        // ✅ UPDATE: do NOT change employee_id or date (avoids unique constraint issues)
         const { error } = await supabase
           .from("attendance")
           .update({
-            employee_id: newAttendance.employee_id,
-            date: newAttendance.date,
             status: newAttendance.status,
             check_in_time: newAttendance.check_in_time || null,
             check_out_time: newAttendance.check_out_time || null,
             notes: newAttendance.notes || null,
+            updated_at: new Date().toISOString(),
           })
           .eq("id", record.id);
+  
         if (error) throw error;
       } else {
-        // Create new record
+        // ✅ INSERT: new attendance
         const { error } = await supabase
           .from("attendance")
           .insert({
@@ -94,6 +94,7 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
             check_out_time: newAttendance.check_out_time || null,
             notes: newAttendance.notes || null,
           });
+  
         if (error) throw error;
       }
     },
@@ -101,12 +102,17 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
       toast.success(record ? "Attendance updated successfully" : "Attendance marked successfully");
       onOpenChange(false);
-      resetForm();
     },
-    onError: () => {
-      toast.error(record ? "Failed to update attendance" : "Failed to mark attendance");
+    onError: (error: any) => {
+      const message =
+        error?.message ||
+        error?.cause?.message ||
+        "Failed to save attendance. Please try again.";
+      toast.error(message);
     },
   });
+  
+  
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

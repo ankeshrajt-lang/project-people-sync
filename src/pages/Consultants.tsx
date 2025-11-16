@@ -632,65 +632,95 @@ export default function Consultants() {
                       </p>
                     </div>
                     <div className="md:col-span-2">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Online Profiles</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedConsultant.linkedin_url && (
-                          <a
-                            href={selectedConsultant.linkedin_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            LinkedIn
-                          </a>
-                        )}
-                        {selectedConsultant.indeed_url && (
-                          <a
-                            href={selectedConsultant.indeed_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            Indeed
-                          </a>
-                        )}
-                        {selectedConsultant.monster_url && (
-                          <a
-                            href={selectedConsultant.monster_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            Monster
-                          </a>
-                        )}
-                        {selectedConsultant.dice_url && (
-                          <a
-                            href={selectedConsultant.dice_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            Dice
-                          </a>
-                        )}
-                        {selectedConsultant.ziprecruiter_url && (
-                          <a
-                            href={selectedConsultant.ziprecruiter_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
+                      <p className="text-sm font-medium text-muted-foreground mb-2">
+                        Online Profiles & Credentials
+                      </p>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {/* LinkedIn */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">LinkedIn</p>
+                          <p className="text-xs">
+                            Username: {selectedConsultant.linkedin_username || "-"}
+                          </p>
+                          <p className="text-xs">
+                            Password: {selectedConsultant.linkedin_password || "-"}
+                          </p>
+                          {selectedConsultant.linkedin_url && (
+                            <p className="text-xs break-all">
+                              URL: {selectedConsultant.linkedin_url}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Indeed */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Indeed</p>
+                          <p className="text-xs">
+                            Username: {selectedConsultant.indeed_username || "-"}
+                          </p>
+                          <p className="text-xs">
+                            Password: {selectedConsultant.indeed_password || "-"}
+                          </p>
+                          {selectedConsultant.indeed_url && (
+                            <p className="text-xs break-all">
+                              URL: {selectedConsultant.indeed_url}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Monster */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Monster</p>
+                          <p className="text-xs">
+                            Username: {selectedConsultant.monster_username || "-"}
+                          </p>
+                          <p className="text-xs">
+                            Password: {selectedConsultant.monster_password || "-"}
+                          </p>
+                          {selectedConsultant.monster_url && (
+                            <p className="text-xs break-all">
+                              URL: {selectedConsultant.monster_url}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Dice */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Dice</p>
+                          <p className="text-xs">
+                            Username: {selectedConsultant.dice_username || "-"}
+                          </p>
+                          <p className="text-xs">
+                            Password: {selectedConsultant.dice_password || "-"}
+                          </p>
+                          {selectedConsultant.dice_url && (
+                            <p className="text-xs break-all">
+                              URL: {selectedConsultant.dice_url}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* ZipRecruiter */}
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">
                             ZipRecruiter
-                          </a>
-                        )}
-                        {!selectedConsultant.linkedin_url &&
-                          !selectedConsultant.indeed_url &&
-                          !selectedConsultant.monster_url &&
-                          !selectedConsultant.dice_url &&
-                          !selectedConsultant.ziprecruiter_url && <span className="text-sm">-</span>}
+                          </p>
+                          <p className="text-xs">
+                            Username: {selectedConsultant.ziprecruiter_username || "-"}
+                          </p>
+                          <p className="text-xs">
+                            Password: {selectedConsultant.ziprecruiter_password || "-"}
+                          </p>
+                          {selectedConsultant.ziprecruiter_url && (
+                            <p className="text-xs break-all">
+                              URL: {selectedConsultant.ziprecruiter_url}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
+
                     {selectedConsultant.notes && (
                       <div className="md:col-span-2">
                         <p className="text-sm font-medium text-muted-foreground">Notes</p>

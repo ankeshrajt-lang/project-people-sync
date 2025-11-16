@@ -245,7 +245,7 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
                   placeholder="Username/Email"
                 />
                 <Input
-                  type="password"
+                  //type="password"
                   value={linkedinPassword}
                   onChange={(e) => setLinkedinPassword(e.target.value)}
                   placeholder="Password"
@@ -267,7 +267,7 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
                   placeholder="Username/Email"
                 />
                 <Input
-                  type="password"
+                 // type="password"
                   value={indeedPassword}
                   onChange={(e) => setIndeedPassword(e.target.value)}
                   placeholder="Password"
@@ -289,7 +289,7 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
                   placeholder="Username/Email"
                 />
                 <Input
-                  type="password"
+                 // type="password"
                   value={monsterPassword}
                   onChange={(e) => setMonsterPassword(e.target.value)}
                   placeholder="Password"
@@ -311,7 +311,7 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
                   placeholder="Username/Email"
                 />
                 <Input
-                  type="password"
+                  //type="password"
                   value={dicePassword}
                   onChange={(e) => setDicePassword(e.target.value)}
                   placeholder="Password"
@@ -333,7 +333,7 @@ export function ConsultantDialog({ open, onOpenChange, consultant }: ConsultantD
                   placeholder="Username/Email"
                 />
                 <Input
-                  type="password"
+                 // type="password"
                   value={ziprecruiterPassword}
                   onChange={(e) => setZiprecruiterPassword(e.target.value)}
                   placeholder="Password"
