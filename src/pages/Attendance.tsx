@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,8 @@ export default function Attendance() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const queryClient = useQueryClient();
 
   const { data: members } = useQuery({
@@ -148,6 +151,22 @@ export default function Attendance() {
     }
   };
 
+  const filterAttendance = (attendance: any[]) => {
+    if (!attendance) return [];
+    
+    let filtered = [...attendance];
+    
+    if (selectedEmployee !== "all") {
+      filtered = filtered.filter(a => a.employee_id === selectedEmployee);
+    }
+    
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter(a => a.status === selectedStatus);
+    }
+    
+    return filtered;
+  };
+
   const calculateStats = (attendance: any[]) => {
     const present = attendance?.filter((a) => a.status === "present").length || 0;
     const absent = attendance?.filter((a) => a.status === "absent").length || 0;
@@ -171,6 +190,42 @@ export default function Attendance() {
         </Button>
       </div>
 
+      <Card className="border-border/50">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {members?.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="half-day">Half Day</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="today" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3 h-11 bg-muted/50 p-1">
           <TabsTrigger value="today" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Today</TabsTrigger>
@@ -181,7 +236,8 @@ export default function Attendance() {
         <TabsContent value="today" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             {(() => {
-              const stats = calculateStats(todayAttendance || []);
+              const filteredData = filterAttendance(todayAttendance || []);
+              const stats = calculateStats(filteredData);
               return (
                 <>
                   <Card>
@@ -239,7 +295,7 @@ export default function Attendance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {todayAttendance?.map((record) => (
+                  {filterAttendance(todayAttendance || [])?.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
@@ -269,7 +325,7 @@ export default function Attendance() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {(!todayAttendance || todayAttendance.length === 0) && (
+                  {filterAttendance(todayAttendance || []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for today
@@ -285,7 +341,8 @@ export default function Attendance() {
         <TabsContent value="week" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             {(() => {
-              const stats = calculateStats(weekAttendance || []);
+              const filteredData = filterAttendance(weekAttendance || []);
+              const stats = calculateStats(filteredData);
               return (
                 <>
                   <Card>
@@ -343,7 +400,7 @@ export default function Attendance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {weekAttendance?.map((record) => (
+                  {filterAttendance(weekAttendance || [])?.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
@@ -373,7 +430,7 @@ export default function Attendance() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {(!weekAttendance || weekAttendance.length === 0) && (
+                  {filterAttendance(weekAttendance || []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for this week
@@ -389,7 +446,8 @@ export default function Attendance() {
         <TabsContent value="month" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             {(() => {
-              const stats = calculateStats(monthAttendance || []);
+              const filteredData = filterAttendance(monthAttendance || []);
+              const stats = calculateStats(filteredData);
               return (
                 <>
                   <Card>
@@ -447,7 +505,7 @@ export default function Attendance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {monthAttendance?.map((record) => (
+                  {filterAttendance(monthAttendance || [])?.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
@@ -477,7 +535,7 @@ export default function Attendance() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {(!monthAttendance || monthAttendance.length === 0) && (
+                  {filterAttendance(monthAttendance || []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No attendance records for this month
