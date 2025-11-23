@@ -62,25 +62,34 @@ export default function FilesResources() {
   // Delete file mutation
   const deleteFileMutation = useMutation({
     mutationFn: async (file: { id: string; file_path: string }) => {
-      const { error: storageError } = await supabase.storage
-        .from("project-files")
-        .remove([file.file_path]);
-
-      if (storageError) throw storageError;
-
+      // First delete from database
       const { error: dbError } = await supabase
         .from("files")
         .delete()
         .eq("id", file.id);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database deletion error:", dbError);
+        throw new Error(`Failed to delete file from database: ${dbError.message}`);
+      }
+
+      // Then delete from storage
+      const { error: storageError } = await supabase.storage
+        .from("project-files")
+        .remove([file.file_path]);
+
+      if (storageError) {
+        console.error("Storage deletion error:", storageError);
+        throw new Error(`Failed to delete file from storage: ${storageError.message}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
       toast.success("File deleted successfully");
     },
-    onError: () => {
-      toast.error("Failed to delete file");
+    onError: (error: any) => {
+      console.error("Delete file error:", error);
+      toast.error(error.message || "Failed to delete file");
     },
   });
 
