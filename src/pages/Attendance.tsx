@@ -230,7 +230,32 @@ export default function Attendance() {
     const total = attendance?.length || 0;
     const percentage = total > 0 ? ((present / total) * 100).toFixed(1) : "0";
     
-    return { present, absent, late, total, percentage };
+    // Calculate total hours worked
+    const totalHours = attendance?.reduce((sum, record) => {
+      if (record.check_in_time && record.check_out_time) {
+        try {
+          const [inHour, inMin] = record.check_in_time.split(":").map(Number);
+          const [outHour, outMin] = record.check_out_time.split(":").map(Number);
+          
+          const inDate = new Date();
+          inDate.setHours(inHour, inMin, 0, 0);
+          
+          const outDate = new Date();
+          outDate.setHours(outHour, outMin, 0, 0);
+          
+          const diffMins = differenceInMinutes(outDate, inDate);
+          
+          if (diffMins > 0) {
+            return sum + (diffMins / 60);
+          }
+        } catch (error) {
+          return sum;
+        }
+      }
+      return sum;
+    }, 0) || 0;
+    
+    return { present, absent, late, total, percentage, totalHours };
   };
 
   return (
@@ -290,7 +315,7 @@ export default function Attendance() {
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             {(() => {
               const filteredData = filterAttendance(todayAttendance || []);
               const stats = calculateStats(filteredData);
@@ -326,6 +351,14 @@ export default function Attendance() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.percentage}%</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-primary">{stats.totalHours.toFixed(1)}h</div>
                     </CardContent>
                   </Card>
                 </>
@@ -395,7 +428,7 @@ export default function Attendance() {
         </TabsContent>
 
         <TabsContent value="week" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             {(() => {
               const filteredData = filterAttendance(weekAttendance || []);
               const stats = calculateStats(filteredData);
@@ -431,6 +464,14 @@ export default function Attendance() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.percentage}%</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-primary">{stats.totalHours.toFixed(1)}h</div>
                     </CardContent>
                   </Card>
                 </>
@@ -500,7 +541,7 @@ export default function Attendance() {
         </TabsContent>
 
         <TabsContent value="month" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             {(() => {
               const filteredData = filterAttendance(monthAttendance || []);
               const stats = calculateStats(filteredData);
@@ -536,6 +577,14 @@ export default function Attendance() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.percentage}%</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-primary">{stats.totalHours.toFixed(1)}h</div>
                     </CardContent>
                   </Card>
                 </>
