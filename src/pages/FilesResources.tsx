@@ -118,16 +118,9 @@ export default function FilesResources() {
   const deleteFileMutation = useMutation({
     mutationFn: async (file: { id: string; file_path: string }) => {
       const storagePath = normalizeStoragePath(file.file_path);
-      if (!storagePath) throw new Error("Missing file path");
-      const { error: storageError } = await supabase.storage
-        .from("project-files")
-        .remove([storagePath]);
 
-      if (storageError) {
-        console.error("Storage deletion error:", storageError);
-        throw new Error(`Failed to delete file from storage: ${storageError.message}`);
-      }
-
+      // Always remove DB record so the file disappears from the UI,
+      // even if the storage object is missing or its path is invalid.
       const { error: dbError } = await supabase
         .from("files")
         .delete()
@@ -136,6 +129,23 @@ export default function FilesResources() {
       if (dbError) {
         console.error("Database deletion error:", dbError);
         throw new Error(`Failed to delete file from database: ${dbError.message}`);
+      }
+
+      if (!storagePath) {
+        console.warn("No storage path for file, skipped storage delete", file);
+        return;
+      }
+
+      try {
+        const { error: storageError } = await supabase.storage
+          .from("project-files")
+          .remove([storagePath]);
+
+        if (storageError) {
+          console.warn("Storage deletion error (DB row already removed):", storageError);
+        }
+      } catch (error) {
+        console.warn("Unexpected storage deletion error (DB row already removed):", error);
       }
     },
     onSuccess: () => {
