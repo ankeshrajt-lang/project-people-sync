@@ -2,14 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit, MoreVertical, FolderSymlink } from "lucide-react";
+import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit, MoreVertical, FolderSymlink, FolderPlus } from "lucide-react";
 import { FileUploadDialog } from "@/components/FileUploadDialog";
 import { InterviewDialog } from "@/components/InterviewDialog";
 import { InterviewCalendar } from "@/components/InterviewCalendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export default function FilesResources() {
   const ROOT_KEY = "__root__";
@@ -43,7 +43,10 @@ export default function FilesResources() {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [fileToMove, setFileToMove] = useState<any>(null);
   const [targetFolder, setTargetFolder] = useState<string>("");
-  const [extraFolders, setExtraFolders] = useState<string[]>([]);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderColor, setNewFolderColor] = useState("sky");
+  const [customFolders, setCustomFolders] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   // Fetch all files
@@ -82,13 +85,43 @@ export default function FilesResources() {
       .map((part) => part.trim())
       .filter(Boolean)
       .join("/");
+  const normalizeStoragePath = (path?: string | null) => {
+    if (!path) return "";
+    return path.replace(/^\/+/, "").replace(/\/{2,}/g, "/").trim();
+  };
+  const folderColorOptions = [
+    { id: "sky", label: "Sky", dot: "bg-sky-500", bg: "bg-sky-100", border: "border-sky-200", text: "text-sky-900" },
+    { id: "emerald", label: "Emerald", dot: "bg-emerald-500", bg: "bg-emerald-100", border: "border-emerald-200", text: "text-emerald-900" },
+    { id: "amber", label: "Amber", dot: "bg-amber-500", bg: "bg-amber-100", border: "border-amber-200", text: "text-amber-900" },
+    { id: "violet", label: "Violet", dot: "bg-violet-500", bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-900" },
+    { id: "gray", label: "Gray", dot: "bg-gray-500", bg: "bg-gray-100", border: "border-gray-200", text: "text-gray-900" },
+  ];
+  const getDeterministicColorId = (name: string) => {
+    if (!name) return "gray";
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = (hash << 5) - hash + name.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % folderColorOptions.length;
+    return folderColorOptions[idx].id;
+  };
+  const colorStyles = folderColorOptions.reduce<Record<string, { dot: string; bg: string; border: string; text: string }>>(
+    (acc, opt) => {
+      acc[opt.id] = { dot: opt.dot, bg: opt.bg, border: opt.border, text: opt.text };
+      return acc;
+    },
+    {}
+  );
 
   // Delete file mutation
   const deleteFileMutation = useMutation({
     mutationFn: async (file: { id: string; file_path: string }) => {
+      const storagePath = normalizeStoragePath(file.file_path);
+      if (!storagePath) throw new Error("Missing file path");
       const { error: storageError } = await supabase.storage
         .from("project-files")
-        .remove([file.file_path]);
+        .remove([storagePath]);
 
       if (storageError) {
         console.error("Storage deletion error:", storageError);
@@ -118,16 +151,53 @@ export default function FilesResources() {
   const moveFileMutation = useMutation({
     mutationFn: async ({ file, folder }: { file: any; folder: string }) => {
       const cleanedFolder = normalizeFolderPath(folder);
-      const fileName = file.file_path?.split("/").pop() || file.name;
-      const newPath = cleanedFolder ? `${cleanedFolder}/${fileName}` : fileName;
+      const rawPath = file.file_path || "";
+      const normalizedPath = normalizeStoragePath(rawPath);
+      const fileNameFromRecord =
+        (normalizedPath || rawPath || file.name || "")
+          .split("/")
+          .filter(Boolean)
+          .pop() || "";
+      const candidates = Array.from(
+        new Set(
+          [
+            rawPath,
+            rawPath.trim(),
+            rawPath.replace(/^\/+/, ""),
+            normalizedPath,
+            fileNameFromRecord,
+            (file.name || "").trim(),
+          ].filter(Boolean)
+        )
+      );
 
-      if (!file.file_path) throw new Error("File path is missing");
-      if (newPath === file.file_path) return;
+      const fileName = fileNameFromRecord || file.name || "";
+      const finalFileName = fileName.trim();
+      const newPath = cleanedFolder
+        ? `${cleanedFolder}/${finalFileName}`
+        : finalFileName;
 
-      const { error: copyError } = await supabase.storage
-        .from("project-files")
-        .copy(file.file_path, newPath);
-      if (copyError) throw copyError;
+      if (!finalFileName) throw new Error("File name is missing");
+      if (!candidates.length) throw new Error("File path is missing");
+      if (candidates.some((c) => normalizeStoragePath(c) === normalizeStoragePath(newPath))) return;
+
+      let usedSource: string | null = null;
+      let lastError: any = null;
+      for (const candidate of candidates) {
+        const cleanedCandidate = normalizeStoragePath(candidate);
+        if (!cleanedCandidate) continue;
+        const { error } = await supabase.storage
+          .from("project-files")
+          .copy(cleanedCandidate, newPath);
+        if (!error) {
+          usedSource = cleanedCandidate;
+          break;
+        }
+        lastError = error;
+      }
+      if (!usedSource) {
+        throw lastError || new Error("Failed to move file: source not found");
+      }
 
       const { error: dbError } = await supabase
         .from("files")
@@ -141,7 +211,7 @@ export default function FilesResources() {
 
       const { error: deleteError } = await supabase.storage
         .from("project-files")
-        .remove([file.file_path]);
+        .remove([usedSource]);
 
       if (deleteError) {
         console.error("Cleanup old file error:", deleteError);
@@ -157,30 +227,6 @@ export default function FilesResources() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to move file");
-    },
-  });
-
-  const createFolderMutation = useMutation({
-    mutationFn: async (folder: string) => {
-      const cleanedFolder = normalizeFolderPath(folder);
-      if (!cleanedFolder) throw new Error("Folder name cannot be empty");
-      const placeholderPath = `${cleanedFolder}/.keep`;
-      const blob = new Blob(["placeholder"], { type: "text/plain" });
-      const { error } = await supabase.storage
-        .from("project-files")
-        .upload(placeholderPath, blob, { upsert: true });
-      if (error) throw error;
-      return cleanedFolder;
-    },
-    onSuccess: (folderName) => {
-      setExtraFolders((prev) =>
-        prev.includes(folderName) ? prev : [...prev, folderName]
-      );
-      setTargetFolder(folderName);
-      toast.success("Folder created");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to create folder");
     },
   });
 
@@ -202,20 +248,49 @@ export default function FilesResources() {
     },
   });
 
-  const handleDownload = async (filePath: string, fileName: string) => {
-    const { data, error } = await supabase.storage
-      .from("project-files")
-      .download(filePath);
+  const handleDownload = async (filePath: string | null | undefined, fileName: string) => {
+    const raw = filePath || "";
+    const cleaned = normalizeStoragePath(raw);
+    const candidates = Array.from(
+      new Set(
+        [
+          raw,
+          raw.trim(),
+          raw.replace(/^\/+/, ""),
+          cleaned,
+        ].filter(Boolean)
+      )
+    );
 
-    if (error) {
-      toast.error("Failed to download file");
+    if (!candidates.length) {
+      toast.error("File path is missing");
       return;
     }
 
-    const url = URL.createObjectURL(data);
+    let blob: Blob | null = null;
+    let lastError: any = null;
+    for (const candidate of candidates) {
+      const path = normalizeStoragePath(candidate);
+      if (!path) continue;
+      const { data, error } = await supabase.storage
+        .from("project-files")
+        .download(path);
+      if (!error && data) {
+        blob = data;
+        break;
+      }
+      lastError = error;
+    }
+
+    if (!blob) {
+      toast.error(`Failed to download file${lastError?.message ? `: ${lastError.message}` : ""}`);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName;
+    a.download = fileName || candidates[0].split("/").pop() || "download";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -255,24 +330,63 @@ export default function FilesResources() {
   const sortedDates = Object.keys(interviewsByDate || {}).sort();
 
   const extractFolder = (path: string | null | undefined) => {
-    if (!path) return "";
-    const parts = path.split("/");
+    const cleaned = normalizeStoragePath(path);
+    if (!cleaned) return "";
+    const parts = cleaned.split("/");
     if (parts.length <= 1) return "";
     return parts.slice(0, -1).join("/");
   };
 
-  const folderOptions = Array.from(
+  const folderCounts: Record<string, number> = (files || []).reduce((acc: Record<string, number>, file: any) => {
+    const folderName = normalizeFolderPath(extractFolder(file.file_path));
+    acc[folderName] = (acc[folderName] || 0) + 1;
+    return acc;
+  }, {});
+
+  const allFolderNames = Array.from(
     new Set([
-      ...(files || []).map((file: any) => extractFolder(file.file_path)),
-      ...extraFolders,
+      ...Object.keys(folderCounts),
+      ...Object.keys(customFolders),
+      normalizeFolderPath(targetFolder),
     ])
   )
-    .filter(Boolean)
+    .filter((name) => name !== undefined && name !== null)
     .sort((a, b) => a.localeCompare(b));
+
+  const folderOptions = allFolderNames;
+
+  const getFolderColorId = (name: string) => {
+    return customFolders[name] || getDeterministicColorId(name);
+  };
+
+  const folderCards = [
+    {
+      name: "all",
+      label: "All",
+      count: files?.length || 0,
+      colorId: "gray",
+    },
+    {
+      name: ROOT_KEY,
+      label: "Root",
+      count: folderCounts[""] || 0,
+      colorId: "gray",
+    },
+    ...allFolderNames
+      .filter((name) => name)
+      .map((name) => ({
+        name,
+        label: name,
+        count: folderCounts[name] || 0,
+        colorId: getFolderColorId(name),
+      })),
+  ];
   const filteredFiles = (files || []).filter((file: any) => {
     if (selectedFolder === "all") return true;
-    if (selectedFolder === ROOT_KEY) return extractFolder(file.file_path) === "";
-    return extractFolder(file.file_path) === selectedFolder;
+    const fileFolder = normalizeFolderPath(extractFolder(file.file_path));
+    if (selectedFolder === ROOT_KEY) return fileFolder === "";
+    const targetFolder = normalizeFolderPath(selectedFolder);
+    return fileFolder === targetFolder;
   });
   const uploadInitialFolder = selectedFolder === "all" || selectedFolder === ROOT_KEY ? "" : selectedFolder;
 
@@ -283,7 +397,11 @@ export default function FilesResources() {
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Files & Resources</h2>
           <p className="text-muted-foreground">Manage files and interview schedules</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => setIsCreateFolderOpen(true)} variant="secondary" className="gap-2">
+            <FolderPlus className="h-4 w-4" />
+            Create Folder
+          </Button>
           <Button onClick={() => setIsFileDialogOpen(true)} variant="outline" className="gap-2">
             <Upload className="h-4 w-4" />
             Upload File
@@ -304,25 +422,41 @@ export default function FilesResources() {
 
         {/* Files Tab */}
         <TabsContent value="files" className="space-y-4 mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-muted-foreground">Folder</p>
-              <Select value={selectedFolder} onValueChange={setSelectedFolder}>
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Choose folder" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All folders</SelectItem>
-                  <SelectItem value={ROOT_KEY}>Root</SelectItem>
-                  {folderOptions.map((folder) => (
-                    <SelectItem key={folder} value={folder}>
-                      {folder}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Folders</h3>
+              <Badge variant="outline">{filteredFiles.length} file{filteredFiles.length === 1 ? "" : "s"} shown</Badge>
             </div>
-            <Badge variant="outline">{filteredFiles.length} file{filteredFiles.length === 1 ? "" : "s"}</Badge>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {folderCards.map((folder) => {
+                const style = colorStyles[folder.colorId] || colorStyles.gray;
+                const isActive =
+                  (folder.name === "all" && selectedFolder === "all") ||
+                  (folder.name === ROOT_KEY && selectedFolder === ROOT_KEY) ||
+                  (folder.name !== "all" && folder.name !== ROOT_KEY && selectedFolder === folder.name);
+                return (
+                  <button
+                    key={folder.name}
+                    onClick={() => setSelectedFolder(folder.name)}
+                    className={cn(
+                      "text-left rounded-lg border p-4 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2",
+                      style.bg,
+                      style.border,
+                      style.text,
+                      isActive ? "ring-2 ring-offset-2 ring-primary" : ""
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("h-2.5 w-2.5 rounded-full", style.dot)} />
+                        <span className="font-semibold">{folder.label}</span>
+                      </div>
+                      <span className="text-xs font-medium">{folder.count} file{folder.count === 1 ? "" : "s"}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           {filesLoading ? (
             <div className="text-center py-12">
@@ -347,7 +481,8 @@ export default function FilesResources() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredFiles.map((file) => {
-                const folderLabel = extractFolder(file.file_path) || "Root";
+                const filePath = normalizeStoragePath(file.file_path);
+                const folderLabel = extractFolder(filePath) || "Root";
                 return (
                 <Card key={file.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
@@ -591,16 +726,20 @@ export default function FilesResources() {
                   type="button"
                   variant="secondary"
                   onClick={() => {
-                    if (!targetFolder.trim()) {
+                    const cleaned = normalizeFolderPath(targetFolder);
+                    if (!cleaned) {
                       toast.error("Enter a folder name first");
                       return;
                     }
-                    createFolderMutation.mutate(targetFolder);
+                    if (!customFolders[cleaned]) {
+                      setCustomFolders((prev) => ({ ...prev, [cleaned]: getDeterministicColorId(cleaned) }));
+                    }
+                    setTargetFolder(cleaned);
+                    toast.success("Folder added");
                   }}
-                  disabled={createFolderMutation.isPending}
                   className="whitespace-nowrap"
                 >
-                  {createFolderMutation.isPending ? "Creating..." : "Create folder"}
+                  Create folder
                 </Button>
               </div>
               <datalist id="move-folder-suggestions">
@@ -619,6 +758,71 @@ export default function FilesResources() {
               <Button type="submit" disabled={moveFileMutation.isPending}>
                 {moveFileMutation.isPending ? "Moving..." : "Move file"}
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Folder</DialogTitle>
+            <DialogDescription>Pick a name and color for your new folder tile.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const cleaned = normalizeFolderPath(newFolderName);
+              if (!cleaned) {
+                toast.error("Folder name cannot be empty");
+                return;
+              }
+              setCustomFolders((prev) => ({ ...prev, [cleaned]: newFolderColor }));
+              setSelectedFolder(cleaned);
+              setTargetFolder(cleaned);
+              setIsCreateFolderOpen(false);
+              setNewFolderName("");
+              setNewFolderColor("sky");
+              toast.success("Folder ready");
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="folder-name">Folder name</Label>
+              <Input
+                id="folder-name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="e.g. Ankesh_Oracle"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Folder color</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {folderColorOptions.map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.id}
+                    onClick={() => setNewFolderColor(opt.id)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+                      opt.bg,
+                      opt.border,
+                      opt.text,
+                      newFolderColor === opt.id ? "ring-2 ring-offset-2 ring-primary" : ""
+                    )}
+                  >
+                    <span className={cn("h-3 w-3 rounded-full", opt.dot)} />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save</Button>
             </DialogFooter>
           </form>
         </DialogContent>
