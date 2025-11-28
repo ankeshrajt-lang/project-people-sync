@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -17,11 +17,20 @@ import { toast } from "sonner";
 interface FileUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  existingFolders?: string[];
+  initialFolder?: string;
 }
 
-export function FileUploadDialog({ open, onOpenChange }: FileUploadDialogProps) {
+export function FileUploadDialog({ open, onOpenChange, existingFolders = [], initialFolder = "" }: FileUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [folderPath, setFolderPath] = useState(initialFolder);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (open) {
+      setFolderPath(initialFolder);
+    }
+  }, [initialFolder, open]);
 
   const uploadFileMutation = useMutation({
     mutationFn: async () => {
@@ -31,11 +40,16 @@ export function FileUploadDialog({ open, onOpenChange }: FileUploadDialogProps) 
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) throw new Error("Not authenticated");
 
-      const fileExt = file.name.split(".").pop();
       // Sanitize filename: remove spaces and special characters
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fileName = `${Date.now()}-${sanitizedName}`;
-      const filePath = fileName;
+      const cleanedFolder = folderPath
+        .replace(/\\/g, "/")
+        .split("/")
+        .map(part => part.trim())
+        .filter(Boolean)
+        .join("/");
+      const filePath = cleanedFolder ? `${cleanedFolder}/${fileName}` : fileName;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
@@ -77,6 +91,7 @@ export function FileUploadDialog({ open, onOpenChange }: FileUploadDialogProps) 
 
   const resetForm = () => {
     setFile(null);
+    setFolderPath(initialFolder);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -111,6 +126,24 @@ export function FileUploadDialog({ open, onOpenChange }: FileUploadDialogProps) 
                   Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
                 </p>
               )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="folder">Folder (optional)</Label>
+              <Input
+                id="folder"
+                list="folder-suggestions"
+                placeholder="e.g. proposals/2025"
+                value={folderPath}
+                onChange={(e) => setFolderPath(e.target.value)}
+              />
+              <datalist id="folder-suggestions">
+                {existingFolders.map((folder) => (
+                  <option key={folder} value={folder} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">
+                Leave blank for root. Use "/" to create nested folders.
+              </p>
             </div>
           </div>
           <DialogFooter>

@@ -9,6 +9,7 @@ import { InterviewCalendar } from "@/components/InterviewCalendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -25,9 +26,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function FilesResources() {
+  const ROOT_KEY = "__root__";
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
   const [isInterviewDialogOpen, setIsInterviewDialogOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState<any>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string>("all");
   const queryClient = useQueryClient();
 
   // Fetch all files
@@ -163,6 +166,25 @@ export default function FilesResources() {
 
   const sortedDates = Object.keys(interviewsByDate || {}).sort();
 
+  const extractFolder = (path: string | null | undefined) => {
+    if (!path) return "";
+    const parts = path.split("/");
+    if (parts.length <= 1) return "";
+    return parts.slice(0, -1).join("/");
+  };
+
+  const folderOptions = Array.from(
+    new Set((files || []).map((file: any) => extractFolder(file.file_path)))
+  )
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  const filteredFiles = (files || []).filter((file: any) => {
+    if (selectedFolder === "all") return true;
+    if (selectedFolder === ROOT_KEY) return extractFolder(file.file_path) === "";
+    return extractFolder(file.file_path) === selectedFolder;
+  });
+  const uploadInitialFolder = selectedFolder === "all" || selectedFolder === ROOT_KEY ? "" : selectedFolder;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -191,6 +213,26 @@ export default function FilesResources() {
 
         {/* Files Tab */}
         <TabsContent value="files" className="space-y-4 mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">Folder</p>
+              <Select value={selectedFolder} onValueChange={setSelectedFolder}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Choose folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All folders</SelectItem>
+                  <SelectItem value={ROOT_KEY}>Root</SelectItem>
+                  {folderOptions.map((folder) => (
+                    <SelectItem key={folder} value={folder}>
+                      {folder}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Badge variant="outline">{filteredFiles.length} file{filteredFiles.length === 1 ? "" : "s"}</Badge>
+          </div>
           {filesLoading ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">Loading files...</p>
@@ -203,14 +245,26 @@ export default function FilesResources() {
                 </p>
               </CardContent>
             </Card>
+          ) : filteredFiles.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  No files in this folder. Switch folders or upload directly here.
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {files.map((file) => (
+              {filteredFiles.map((file) => {
+                const folderLabel = extractFolder(file.file_path) || "Root";
+                return (
                 <Card key={file.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base line-clamp-2">{file.name}</CardTitle>
                     <CardDescription className="text-xs">
                       {formatFileSize(file.file_size)}
+                      {" • "}
+                      {folderLabel}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -259,7 +313,8 @@ export default function FilesResources() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              );
+            })}
             </div>
           )}
         </TabsContent>
@@ -391,7 +446,12 @@ export default function FilesResources() {
         </TabsContent>
       </Tabs>
 
-      <FileUploadDialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen} />
+      <FileUploadDialog
+        open={isFileDialogOpen}
+        onOpenChange={setIsFileDialogOpen}
+        existingFolders={folderOptions}
+        initialFolder={uploadInitialFolder}
+      />
       <InterviewDialog
         open={isInterviewDialogOpen}
         onOpenChange={handleInterviewDialogClose}
