@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit } from "lucide-react";
+import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit, MoreVertical, FolderSymlink } from "lucide-react";
 import { FileUploadDialog } from "@/components/FileUploadDialog";
 import { InterviewDialog } from "@/components/InterviewDialog";
 import { InterviewCalendar } from "@/components/InterviewCalendar";
@@ -10,6 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -31,6 +40,10 @@ export default function FilesResources() {
   const [isInterviewDialogOpen, setIsInterviewDialogOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState<any>(null);
   const [selectedFolder, setSelectedFolder] = useState<string>("all");
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [fileToMove, setFileToMove] = useState<any>(null);
+  const [targetFolder, setTargetFolder] = useState<string>("");
+  const [extraFolders, setExtraFolders] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   // Fetch all files
@@ -62,10 +75,26 @@ export default function FilesResources() {
     },
   });
 
+  const normalizeFolderPath = (folder: string) =>
+    folder
+      .replace(/\\/g, "/")
+      .split("/")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join("/");
+
   // Delete file mutation
   const deleteFileMutation = useMutation({
     mutationFn: async (file: { id: string; file_path: string }) => {
-      // First delete from database
+      const { error: storageError } = await supabase.storage
+        .from("project-files")
+        .remove([file.file_path]);
+
+      if (storageError) {
+        console.error("Storage deletion error:", storageError);
+        throw new Error(`Failed to delete file from storage: ${storageError.message}`);
+      }
+
       const { error: dbError } = await supabase
         .from("files")
         .delete()
@@ -75,16 +104,6 @@ export default function FilesResources() {
         console.error("Database deletion error:", dbError);
         throw new Error(`Failed to delete file from database: ${dbError.message}`);
       }
-
-      // Then delete from storage
-      const { error: storageError } = await supabase.storage
-        .from("project-files")
-        .remove([file.file_path]);
-
-      if (storageError) {
-        console.error("Storage deletion error:", storageError);
-        throw new Error(`Failed to delete file from storage: ${storageError.message}`);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
@@ -93,6 +112,75 @@ export default function FilesResources() {
     onError: (error: any) => {
       console.error("Delete file error:", error);
       toast.error(error.message || "Failed to delete file");
+    },
+  });
+
+  const moveFileMutation = useMutation({
+    mutationFn: async ({ file, folder }: { file: any; folder: string }) => {
+      const cleanedFolder = normalizeFolderPath(folder);
+      const fileName = file.file_path?.split("/").pop() || file.name;
+      const newPath = cleanedFolder ? `${cleanedFolder}/${fileName}` : fileName;
+
+      if (!file.file_path) throw new Error("File path is missing");
+      if (newPath === file.file_path) return;
+
+      const { error: copyError } = await supabase.storage
+        .from("project-files")
+        .copy(file.file_path, newPath);
+      if (copyError) throw copyError;
+
+      const { error: dbError } = await supabase
+        .from("files")
+        .update({ file_path: newPath })
+        .eq("id", file.id);
+
+      if (dbError) {
+        await supabase.storage.from("project-files").remove([newPath]).catch(() => {});
+        throw dbError;
+      }
+
+      const { error: deleteError } = await supabase.storage
+        .from("project-files")
+        .remove([file.file_path]);
+
+      if (deleteError) {
+        console.error("Cleanup old file error:", deleteError);
+        toast.warning("Moved, but could not delete old file");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      toast.success("File moved successfully");
+      setIsMoveDialogOpen(false);
+      setFileToMove(null);
+      setTargetFolder("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to move file");
+    },
+  });
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (folder: string) => {
+      const cleanedFolder = normalizeFolderPath(folder);
+      if (!cleanedFolder) throw new Error("Folder name cannot be empty");
+      const placeholderPath = `${cleanedFolder}/.keep`;
+      const blob = new Blob(["placeholder"], { type: "text/plain" });
+      const { error } = await supabase.storage
+        .from("project-files")
+        .upload(placeholderPath, blob, { upsert: true });
+      if (error) throw error;
+      return cleanedFolder;
+    },
+    onSuccess: (folderName) => {
+      setExtraFolders((prev) =>
+        prev.includes(folderName) ? prev : [...prev, folderName]
+      );
+      setTargetFolder(folderName);
+      toast.success("Folder created");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to create folder");
     },
   });
 
@@ -174,7 +262,10 @@ export default function FilesResources() {
   };
 
   const folderOptions = Array.from(
-    new Set((files || []).map((file: any) => extractFolder(file.file_path)))
+    new Set([
+      ...(files || []).map((file: any) => extractFolder(file.file_path)),
+      ...extraFolders,
+    ])
   )
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
@@ -260,12 +351,36 @@ export default function FilesResources() {
                 return (
                 <Card key={file.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base line-clamp-2">{file.name}</CardTitle>
-                    <CardDescription className="text-xs">
-                      {formatFileSize(file.file_size)}
-                      {" • "}
-                      {folderLabel}
-                    </CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base line-clamp-2">{file.name}</CardTitle>
+                        <CardDescription className="text-xs">
+                          {formatFileSize(file.file_size)}
+                          {" • "}
+                          {folderLabel}
+                        </CardDescription>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="gap-2"
+                            onClick={() => {
+                              setFileToMove(file);
+                              setTargetFolder(extractFolder(file.file_path) || "");
+                              setIsMoveDialogOpen(true);
+                            }}
+                          >
+                            <FolderSymlink className="h-4 w-4" />
+                            Move to folder
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 text-sm text-muted-foreground">
@@ -445,6 +560,69 @@ export default function FilesResources() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move file</DialogTitle>
+            <DialogDescription>
+              Choose a destination folder. Enter a new folder path to create it on move (use "/" for nesting).
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!fileToMove) return;
+              moveFileMutation.mutate({ file: fileToMove, folder: targetFolder });
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="target-folder">Folder</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="target-folder"
+                  list="move-folder-suggestions"
+                  placeholder="e.g. proposals/2025"
+                  value={targetFolder}
+                  onChange={(e) => setTargetFolder(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    if (!targetFolder.trim()) {
+                      toast.error("Enter a folder name first");
+                      return;
+                    }
+                    createFolderMutation.mutate(targetFolder);
+                  }}
+                  disabled={createFolderMutation.isPending}
+                  className="whitespace-nowrap"
+                >
+                  {createFolderMutation.isPending ? "Creating..." : "Create folder"}
+                </Button>
+              </div>
+              <datalist id="move-folder-suggestions">
+                {folderOptions.map((folder) => (
+                  <option key={folder} value={folder} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">
+                Leave blank for root. Folders are created automatically when you move the file.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={moveFileMutation.isPending}>
+                {moveFileMutation.isPending ? "Moving..." : "Move file"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <FileUploadDialog
         open={isFileDialogOpen}
