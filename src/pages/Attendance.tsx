@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes, differenceInDays, parseISO } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes, differenceInDays, parseISO, subMonths } from "date-fns";
 
 export default function Attendance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -82,6 +82,46 @@ export default function Attendance() {
       return data;
     },
   });
+
+  const { data: prevMonthAttendance } = useQuery({
+    queryKey: ["attendance", "prevMonth"],
+    queryFn: async () => {
+      const prevMonth = subMonths(new Date(), 1);
+      const start = format(startOfMonth(prevMonth), "yyyy-MM-dd");
+      const end = format(endOfMonth(prevMonth), "yyyy-MM-dd");
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("*, team_members(name)")
+        .gte("date", start)
+        .lte("date", end);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: jobApplications } = useQuery({
+    queryKey: ["job_applications_for_attendance"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("job_applications")
+        .select("date_applied, jobs_applied_count");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Create a map of date -> total jobs applied
+  const jobsAppliedByDate = (jobApplications || []).reduce((acc, app) => {
+    if (app.date_applied) {
+      const dateKey = app.date_applied;
+      acc[dateKey] = (acc[dateKey] || 0) + (app.jobs_applied_count || 1);
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const getJobsAppliedForDate = (date: string) => {
+    return jobsAppliedByDate[date] || 0;
+  };
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: "default" | "destructive" | "outline" | "secondary"; className: string }> = {
@@ -193,7 +233,8 @@ export default function Attendance() {
       const allAttendance = [
         ...(todayAttendance || []),
         ...(weekAttendance || []),
-        ...(monthAttendance || [])
+        ...(monthAttendance || []),
+        ...(prevMonthAttendance || [])
       ];
 
       const recordsNeedingUpdate = allAttendance.filter(record => {
@@ -221,7 +262,7 @@ export default function Attendance() {
     };
 
     checkAndUpdateTimes();
-  }, [todayAttendance, weekAttendance, monthAttendance]);
+  }, [todayAttendance, weekAttendance, monthAttendance, prevMonthAttendance]);
 
   const calculateStats = (attendance: any[]) => {
     const present = attendance?.filter((a) => a.status === "present").length || 0;
@@ -308,10 +349,11 @@ export default function Attendance() {
       </Card>
 
       <Tabs defaultValue="today" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3 h-11 bg-muted/50 p-1">
+        <TabsList className="grid w-full max-w-lg grid-cols-4 h-11 bg-muted/50 p-1">
           <TabsTrigger value="today" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Today</TabsTrigger>
           <TabsTrigger value="week" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Week</TabsTrigger>
           <TabsTrigger value="month" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Month</TabsTrigger>
+          <TabsTrigger value="prevMonth" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Prev Month</TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
@@ -379,6 +421,7 @@ export default function Attendance() {
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
                     <TableHead>Hours Worked</TableHead>
+                    <TableHead>Jobs Applied</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -392,6 +435,9 @@ export default function Attendance() {
                       <TableCell>{record.check_out_time || "-"}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="font-medium text-accent">
+                        {getJobsAppliedForDate(record.date)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{record.notes || "-"}</TableCell>
                       <TableCell className="text-right">
@@ -416,7 +462,7 @@ export default function Attendance() {
                   ))}
                   {filterAttendance(todayAttendance || []).length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         No attendance records for today
                       </TableCell>
                     </TableRow>
@@ -493,6 +539,7 @@ export default function Attendance() {
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
                     <TableHead>Hours Worked</TableHead>
+                    <TableHead>Jobs Applied</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -506,6 +553,9 @@ export default function Attendance() {
                       <TableCell>{record.check_out_time || "-"}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="font-medium text-accent">
+                        {getJobsAppliedForDate(record.date)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -529,7 +579,7 @@ export default function Attendance() {
                   ))}
                   {filterAttendance(weekAttendance || []).length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         No attendance records for this week
                       </TableCell>
                     </TableRow>
@@ -606,6 +656,7 @@ export default function Attendance() {
                     <TableHead>Check In</TableHead>
                     <TableHead>Check Out</TableHead>
                     <TableHead>Hours Worked</TableHead>
+                    <TableHead>Jobs Applied</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -619,6 +670,9 @@ export default function Attendance() {
                       <TableCell>{record.check_out_time || "-"}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="font-medium text-accent">
+                        {getJobsAppliedForDate(record.date)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -642,8 +696,125 @@ export default function Attendance() {
                   ))}
                   {filterAttendance(monthAttendance || []).length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         No attendance records for this month
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="prevMonth" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-5">
+            {(() => {
+              const filteredData = filterAttendance(prevMonthAttendance || []);
+              const stats = calculateStats(filteredData);
+              return (
+                <>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.total}</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-success/20 bg-success/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Present</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-success">{stats.present}</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-destructive/20 bg-destructive/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Absent</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-destructive">{stats.absent}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Rate</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.percentage}%</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-primary">{stats.totalHours.toFixed(1)}h</div>
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
+          </div>
+
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl">Previous Month's Attendance ({format(subMonths(new Date(), 1), "MMMM yyyy")})</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Check In</TableHead>
+                    <TableHead>Check Out</TableHead>
+                    <TableHead>Hours Worked</TableHead>
+                    <TableHead>Jobs Applied</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filterAttendance(prevMonthAttendance || [])?.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
+                      <TableCell className="font-medium">{record.team_members?.name}</TableCell>
+                      <TableCell>{getStatusBadge(record.status)}</TableCell>
+                      <TableCell>{record.check_in_time || "-"}</TableCell>
+                      <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {calculateTotalHours(record.check_in_time, record.check_out_time)}
+                      </TableCell>
+                      <TableCell className="font-medium text-accent">
+                        {getJobsAppliedForDate(record.date)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(record)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteRecordId(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filterAttendance(prevMonthAttendance || []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        No attendance records for previous month
                       </TableCell>
                     </TableRow>
                   )}
