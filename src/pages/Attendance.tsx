@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, Calendar as CalendarIcon, Edit, Trash2 } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { AttendanceDialog } from "@/components/AttendanceDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes, differenceInDays, parseISO, subMonths } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInMinutes, differenceInDays, parseISO, subMonths, addMonths } from "date-fns";
 
 export default function Attendance() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -29,6 +29,7 @@ export default function Attendance() {
   const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [browseMonth, setBrowseMonth] = useState<Date>(new Date());
   const queryClient = useQueryClient();
 
   const { data: members } = useQuery({
@@ -83,12 +84,11 @@ export default function Attendance() {
     },
   });
 
-  const { data: prevMonthAttendance } = useQuery({
-    queryKey: ["attendance", "prevMonth"],
+  const { data: browseMonthAttendance } = useQuery({
+    queryKey: ["attendance", "browse", format(browseMonth, "yyyy-MM")],
     queryFn: async () => {
-      const prevMonth = subMonths(new Date(), 1);
-      const start = format(startOfMonth(prevMonth), "yyyy-MM-dd");
-      const end = format(endOfMonth(prevMonth), "yyyy-MM-dd");
+      const start = format(startOfMonth(browseMonth), "yyyy-MM-dd");
+      const end = format(endOfMonth(browseMonth), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("attendance")
         .select("*, team_members(name)")
@@ -234,7 +234,7 @@ export default function Attendance() {
         ...(todayAttendance || []),
         ...(weekAttendance || []),
         ...(monthAttendance || []),
-        ...(prevMonthAttendance || [])
+        ...(browseMonthAttendance || [])
       ];
 
       const recordsNeedingUpdate = allAttendance.filter(record => {
@@ -262,7 +262,7 @@ export default function Attendance() {
     };
 
     checkAndUpdateTimes();
-  }, [todayAttendance, weekAttendance, monthAttendance, prevMonthAttendance]);
+  }, [todayAttendance, weekAttendance, monthAttendance, browseMonthAttendance]);
 
   const calculateStats = (attendance: any[]) => {
     const present = attendance?.filter((a) => a.status === "present").length || 0;
@@ -353,7 +353,7 @@ export default function Attendance() {
           <TabsTrigger value="today" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Today</TabsTrigger>
           <TabsTrigger value="week" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Week</TabsTrigger>
           <TabsTrigger value="month" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">This Month</TabsTrigger>
-          <TabsTrigger value="prevMonth" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Prev Month</TabsTrigger>
+          <TabsTrigger value="prevMonth" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Browse</TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
@@ -708,9 +708,29 @@ export default function Attendance() {
         </TabsContent>
 
         <TabsContent value="prevMonth" className="space-y-4">
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setBrowseMonth(subMonths(browseMonth, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h3 className="text-lg font-semibold min-w-[180px] text-center">
+              {format(browseMonth, "MMMM yyyy")}
+            </h3>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setBrowseMonth(addMonths(browseMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-5">
             {(() => {
-              const filteredData = filterAttendance(prevMonthAttendance || []);
+              const filteredData = filterAttendance(browseMonthAttendance || []);
               const stats = calculateStats(filteredData);
               return (
                 <>
@@ -761,7 +781,7 @@ export default function Attendance() {
 
           <Card className="border-border/50 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-xl">Previous Month's Attendance ({format(subMonths(new Date(), 1), "MMMM yyyy")})</CardTitle>
+              <CardTitle className="text-xl">Attendance for {format(browseMonth, "MMMM yyyy")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <Table>
@@ -778,7 +798,7 @@ export default function Attendance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filterAttendance(prevMonthAttendance || [])?.map((record) => (
+                  {filterAttendance(browseMonthAttendance || [])?.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
@@ -811,10 +831,10 @@ export default function Attendance() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filterAttendance(prevMonthAttendance || []).length === 0 && (
+                  {filterAttendance(browseMonthAttendance || []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                        No attendance records for previous month
+                        No attendance records for {format(browseMonth, "MMMM yyyy")}
                       </TableCell>
                     </TableRow>
                   )}
