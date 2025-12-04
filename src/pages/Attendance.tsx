@@ -138,26 +138,38 @@ export default function Attendance() {
     );
   };
 
+  const formatTime = (time: string | null) => {
+    if (!time) return "-";
+    try {
+      const [hours, minutes] = time.split(":");
+      const date = new Date();
+      date.setHours(parseInt(hours), parseInt(minutes));
+      return format(date, "hh:mm a");
+    } catch (e) {
+      return time;
+    }
+  };
+
   const calculateTotalHours = (checkIn: string | null, checkOut: string | null) => {
     if (!checkIn || !checkOut) return "-";
-    
+
     try {
       const [inHour, inMin] = checkIn.split(":").map(Number);
       const [outHour, outMin] = checkOut.split(":").map(Number);
-      
+
       const inDate = new Date();
       inDate.setHours(inHour, inMin, 0, 0);
-      
+
       const outDate = new Date();
       outDate.setHours(outHour, outMin, 0, 0);
-      
+
       const diffMins = differenceInMinutes(outDate, inDate);
-      
+
       if (diffMins < 0) return "-";
-      
+
       const hours = Math.floor(diffMins / 60);
       const minutes = diffMins % 60;
-      
+
       return `${hours}h ${minutes}m`;
     } catch (error) {
       return "-";
@@ -193,26 +205,26 @@ export default function Attendance() {
 
   const filterAttendance = (attendance: any[]) => {
     if (!attendance) return [];
-    
+
     let filtered = [...attendance];
-    
+
     if (selectedEmployee !== "all") {
       filtered = filtered.filter(a => a.employee_id === selectedEmployee);
     }
-    
+
     if (selectedStatus !== "all") {
       filtered = filtered.filter(a => a.status === selectedStatus);
     }
-    
+
     // Sort by date descending (most recent first)
     filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
     return filtered;
   };
 
   const updateDefaultTimesMutation = useMutation({
     mutationFn: async (records: any[]) => {
-      const updates = records.map(record => 
+      const updates = records.map(record =>
         supabase
           .from("attendance")
           .update({
@@ -239,12 +251,12 @@ export default function Attendance() {
 
       const recordsNeedingUpdate = allAttendance.filter(record => {
         // Check if present without times
-        const needsDefaultTimes = record.status === "present" && 
+        const needsDefaultTimes = record.status === "present" &&
           (!record.check_in_time || !record.check_out_time);
 
         // Check if end time is missing and more than 1 day has passed
-        const needsEndTime = record.check_in_time && 
-          !record.check_out_time && 
+        const needsEndTime = record.check_in_time &&
+          !record.check_out_time &&
           differenceInDays(new Date(), parseISO(record.date)) > 1;
 
         return needsDefaultTimes || needsEndTime;
@@ -252,7 +264,7 @@ export default function Attendance() {
 
       // Remove duplicates by id
       const uniqueRecords = recordsNeedingUpdate.filter(
-        (record, index, self) => 
+        (record, index, self) =>
           index === self.findIndex(r => r.id === record.id)
       );
 
@@ -270,22 +282,22 @@ export default function Attendance() {
     const late = attendance?.filter((a) => a.status === "late").length || 0;
     const total = attendance?.length || 0;
     const percentage = total > 0 ? ((present / total) * 100).toFixed(1) : "0";
-    
+
     // Calculate total hours worked
     const totalHours = attendance?.reduce((sum, record) => {
       if (record.check_in_time && record.check_out_time) {
         try {
           const [inHour, inMin] = record.check_in_time.split(":").map(Number);
           const [outHour, outMin] = record.check_out_time.split(":").map(Number);
-          
+
           const inDate = new Date();
           inDate.setHours(inHour, inMin, 0, 0);
-          
+
           const outDate = new Date();
           outDate.setHours(outHour, outMin, 0, 0);
-          
+
           const diffMins = differenceInMinutes(outDate, inDate);
-          
+
           if (diffMins > 0) {
             return sum + (diffMins / 60);
           }
@@ -295,7 +307,7 @@ export default function Attendance() {
       }
       return sum;
     }, 0) || 0;
-    
+
     return { present, absent, late, total, percentage, totalHours };
   };
 
@@ -431,8 +443,8 @@ export default function Attendance() {
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>{record.check_in_time || "-"}</TableCell>
-                      <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell>{formatTime(record.check_in_time)}</TableCell>
+                      <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
@@ -549,8 +561,8 @@ export default function Attendance() {
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>{record.check_in_time || "-"}</TableCell>
-                      <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell>{formatTime(record.check_in_time)}</TableCell>
+                      <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
@@ -666,8 +678,8 @@ export default function Attendance() {
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>{record.check_in_time || "-"}</TableCell>
-                      <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell>{formatTime(record.check_in_time)}</TableCell>
+                      <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
@@ -803,8 +815,8 @@ export default function Attendance() {
                       <TableCell>{format(new Date(record.date), "MMM dd, yyyy")}</TableCell>
                       <TableCell className="font-medium">{record.team_members?.name}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>{record.check_in_time || "-"}</TableCell>
-                      <TableCell>{record.check_out_time || "-"}</TableCell>
+                      <TableCell>{formatTime(record.check_in_time)}</TableCell>
+                      <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>

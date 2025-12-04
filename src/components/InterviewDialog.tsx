@@ -21,8 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { format, addMinutes, parse, differenceInMinutes } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 interface InterviewDialogProps {
   open: boolean;
@@ -30,13 +30,15 @@ interface InterviewDialogProps {
   interview?: any;
 }
 
+const PST_TIMEZONE = "America/Los_Angeles";
+
 export function InterviewDialog({ open, onOpenChange, interview }: InterviewDialogProps) {
   const [title, setTitle] = useState("");
   const [intervieweeId, setIntervieweeId] = useState<string>("");
   const [interviewerName, setInterviewerName] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
-  const [duration, setDuration] = useState("60");
+  const [endTime, setEndTime] = useState("");
   const [notes, setNotes] = useState("");
   const queryClient = useQueryClient();
 
@@ -56,12 +58,17 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
       setTitle(interview.title || "");
       setIntervieweeId(interview.interviewee_id || "");
       setInterviewerName(interview.interviewer_name || "");
-      
+
       // Convert UTC to PST for display
-      const pstDate = toZonedTime(new Date(interview.scheduled_at), 'America/Los_Angeles');
+      const pstDate = toZonedTime(new Date(interview.scheduled_at), PST_TIMEZONE);
       setScheduledDate(format(pstDate, 'yyyy-MM-dd'));
       setScheduledTime(format(pstDate, 'HH:mm'));
-      setDuration(interview.duration_minutes?.toString() || "60");
+
+      // Calculate end time
+      const duration = interview.duration_minutes || 60;
+      const pstEndDate = addMinutes(pstDate, duration);
+      setEndTime(format(pstEndDate, 'HH:mm'));
+
       setNotes(interview.notes || "");
     } else {
       resetForm();
@@ -74,7 +81,7 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
     setInterviewerName("");
     setScheduledDate("");
     setScheduledTime("");
-    setDuration("60");
+    setEndTime("");
     setNotes("");
   };
 
@@ -83,20 +90,24 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) throw new Error("Not authenticated");
 
+      // Calculate duration
+      const startDate = parse(scheduledTime, 'HH:mm', new Date());
+      const endDate = parse(endTime, 'HH:mm', new Date());
+
+      let duration = differenceInMinutes(endDate, startDate);
+      if (duration < 0) duration += 24 * 60; // Handle overnight interviews
+      if (duration === 0) duration = 60; // Default to 60 if same time
+
       // Combine date and time in PST and convert to UTC for storage
-      const pstDateTime = `${scheduledDate}T${scheduledTime}:00`;
-      const pstDate = new Date(pstDateTime);
-      
-      // Create a date string in PST timezone
-      const pstString = pstDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-      const utcDate = new Date(pstString);
+      const pstDateTimeString = `${scheduledDate}T${scheduledTime}`;
+      const utcDate = fromZonedTime(pstDateTimeString, PST_TIMEZONE);
 
       const interviewData = {
         title,
         interviewee_id: intervieweeId || null,
         interviewer_name: interviewerName,
         scheduled_at: utcDate.toISOString(),
-        duration_minutes: parseInt(duration),
+        duration_minutes: duration,
         notes,
         created_by: session.session.user.id,
       };
@@ -127,7 +138,7 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !scheduledDate || !scheduledTime) {
+    if (!title || !scheduledDate || !scheduledTime || !endTime) {
       toast.error("Please fill in required fields");
       return;
     }
@@ -155,7 +166,7 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
                 required
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="interviewee">Candidate / Interviewee</Label>
               <Select value={intervieweeId} onValueChange={setIntervieweeId}>
@@ -193,8 +204,11 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="time">Time (PST) *</Label>
+                <Label htmlFor="time">Start Time (PST) *</Label>
                 <Input
                   id="time"
                   type="time"
@@ -203,22 +217,16 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
                   required
                 />
               </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="duration">Duration (minutes)</Label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">30 minutes</SelectItem>
-                  <SelectItem value="45">45 minutes</SelectItem>
-                  <SelectItem value="60">1 hour</SelectItem>
-                  <SelectItem value="90">1.5 hours</SelectItem>
-                  <SelectItem value="120">2 hours</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid gap-2">
+                <Label htmlFor="endTime">End Time (PST) *</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <div className="grid gap-2">
@@ -227,8 +235,7 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any additional notes or interview details"
-                rows={3}
+                placeholder="Add any additional notes or requirements..."
               />
             </div>
           </div>
@@ -237,7 +244,7 @@ export function InterviewDialog({ open, onOpenChange, interview }: InterviewDial
               Cancel
             </Button>
             <Button type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? "Saving..." : interview ? "Update" : "Schedule"}
+              {saveMutation.isPending ? "Saving..." : "Save Interview"}
             </Button>
           </DialogFooter>
         </form>

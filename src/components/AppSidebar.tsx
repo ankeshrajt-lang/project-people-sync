@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, Users, FolderOpen, UserCheck, Briefcase } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Users, FolderOpen, UserCheck, Briefcase, Settings, HelpCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -27,28 +28,38 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  const isActive = (path: string) => currentPath === path;
-
   return (
-    <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
-      <SidebarContent>
+    <Sidebar className="border-r border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/50 backdrop-blur-xl" collapsible="icon">
+      <SidebarContent className="pt-4">
+        <div className={`px-4 mb-6 flex items-center ${open ? "justify-start" : "justify-center"}`}>
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <Briefcase className="h-4 w-4 text-white" />
+          </div>
+          {open && (
+            <div className="ml-3 animate-fade-in">
+              <h2 className="font-bold text-lg tracking-tight">PeopleSync</h2>
+              <p className="text-xs text-muted-foreground">Manager Workspace</p>
+            </div>
+          )}
+        </div>
+
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/80">
-            Project Manager
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 mb-2">
+            Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="px-2 space-y-1">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      className="flex items-center gap-3 w-full p-2"
+                      activeClassName="bg-primary/10 text-primary font-semibold shadow-sm"
                     >
                       <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -57,6 +68,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-4 border-t border-black/5 dark:border-white/5">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton className="rounded-lg hover:bg-black/5 dark:hover:bg-white/10">
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton className="rounded-lg hover:bg-black/5 dark:hover:bg-white/10">
+              <HelpCircle className="h-4 w-4" />
+              <span>Help & Support</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -95,8 +95,8 @@ export function InterviewCalendar() {
                               interview.status === "completed"
                                 ? "default"
                                 : interview.status === "cancelled"
-                                ? "destructive"
-                                : "secondary"
+                                  ? "destructive"
+                                  : "secondary"
                             }
                           >
                             {interview.status}
@@ -110,10 +110,14 @@ export function InterviewCalendar() {
                             new Date(interview.scheduled_at),
                             PST_TIMEZONE,
                             "h:mm a"
+                          )} - {formatInTimeZone(
+                            new Date(new Date(interview.scheduled_at).getTime() + (interview.duration_minutes || 60) * 60000),
+                            PST_TIMEZONE,
+                            "h:mm a"
                           )} PST
                           <Badge variant="outline" className="ml-auto">{interview.duration_minutes} min</Badge>
                         </div>
-                        
+
                         <div className="space-y-2 text-sm text-muted-foreground border-t pt-3">
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4" />
@@ -128,7 +132,7 @@ export function InterviewCalendar() {
                             </div>
                           )}
                         </div>
-                        
+
                         {interview.notes && (
                           <p className="text-xs text-muted-foreground line-clamp-3 border-t pt-2">
                             {interview.notes}
