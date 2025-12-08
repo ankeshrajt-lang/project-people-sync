@@ -353,7 +353,7 @@ export default function Consultants() {
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className={`h-10 w-10 transition-transform duration-200 ${selectedConsultantId === consultant.id ? "scale-105" : ""}`}>
-                      <AvatarImage src={consultant.avatar_url} />
+                      <AvatarImage src={undefined} />
                       <AvatarFallback className={`${selectedConsultantId === consultant.id ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                         {initials}
                       </AvatarFallback>
@@ -439,7 +439,7 @@ export default function Consultants() {
                       <h3 className="text-2xl font-bold tracking-tight">{selectedConsultant.name}</h3>
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <Briefcase className="h-3 w-3" />
-                        {selectedConsultant.role || "Consultant"}
+                        Consultant
                       </p>
                     </div>
                   </div>

@@ -319,6 +319,7 @@ export type Database = {
           interviewee_id: string | null
           interviewer_name: string | null
           notes: string | null
+          reminder_sent: boolean
           scheduled_at: string
           status: string
           title: string
@@ -332,6 +333,7 @@ export type Database = {
           interviewee_id?: string | null
           interviewer_name?: string | null
           notes?: string | null
+          reminder_sent?: boolean
           scheduled_at: string
           status?: string
           title: string
@@ -345,6 +347,7 @@ export type Database = {
           interviewee_id?: string | null
           interviewer_name?: string | null
           notes?: string | null
+          reminder_sent?: boolean
           scheduled_at?: string
           status?: string
           title?: string
