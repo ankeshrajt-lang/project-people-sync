@@ -670,6 +670,10 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      soft_delete_team_member: {
+        Args: { _member_id: string }
+        Returns: undefined
+      }
       update_last_seen: {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
