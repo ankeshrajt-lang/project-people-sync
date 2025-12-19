@@ -600,6 +600,7 @@ export type Database = {
           department: string | null
           email: string
           id: string
+          is_approved: boolean | null
           last_seen: string | null
           name: string
           role: string | null
@@ -611,6 +612,7 @@ export type Database = {
           department?: string | null
           email: string
           id?: string
+          is_approved?: boolean | null
           last_seen?: string | null
           name: string
           role?: string | null
@@ -622,6 +624,7 @@ export type Database = {
           department?: string | null
           email?: string
           id?: string
+          is_approved?: boolean | null
           last_seen?: string | null
           name?: string
           role?: string | null
@@ -654,6 +657,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_team_member: { Args: { _member_id: string }; Returns: undefined }
+      hard_delete_team_member: {
+        Args: { _member_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -669,10 +677,6 @@ export type Database = {
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
-      }
-      soft_delete_team_member: {
-        Args: { _member_id: string }
-        Returns: undefined
       }
       update_last_seen: {
         Args: { _group_id: string; _user_id: string }

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, ExternalLink, Save, Edit2, Users, UserX } from "lucide-react";
+import { MessageSquare, ExternalLink, Save, Edit2, Users, UserX, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,18 +56,17 @@ export default function Team() {
         },
     });
 
-    // Soft Delete Mutation via RPC
+    // Hard Delete Mutation via RPC
     const deleteMemberMutation = useMutation({
         mutationFn: async (id: string) => {
-            // Use RPC to bypass RLS and ensure soft delete works
-            const { error } = await supabase.rpc('soft_delete_team_member', {
+            const { error } = await supabase.rpc('hard_delete_team_member', {
                 _member_id: id
             });
             if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["team_members"] });
-            toast.success("Team member marked as deleted");
+            toast.success("Team member deleted permanently");
         },
         onError: (error) => {
             console.error("Delete error:", error);
@@ -75,12 +74,28 @@ export default function Team() {
         }
     });
 
+    // Approve Member Mutation
+    const approveMemberMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase.rpc('approve_team_member', {
+                _member_id: id
+            });
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["team_members"] });
+            toast.success("Team member approved!");
+        },
+        onError: (error) => {
+            console.error("Approve error:", error);
+            toast.error("Failed to approve team member: " + error.message);
+        }
+    });
 
-    // Custom filter: Hide deleted members unless admin
+    // Filter members: non-admins only see approved members
     const visibleMembers = members?.filter(member => {
-        const isDeleted = member.department === "Deleted";
-        if (isAdmin) return true; // Admins see everything
-        return !isDeleted; // Non-admins only see non-deleted
+        if (isAdmin) return true; // Admins see everyone
+        return member.is_approved === true; // Non-admins only see approved
     });
 
     return (
@@ -172,16 +187,20 @@ export default function Team() {
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {visibleMembers?.map((member) => {
-                            const isDeleted = member.department === "Deleted";
+                            const isPending = member.is_approved === false;
                             return (
-                                <Card key={member.id} className={`hover:shadow-md transition-all duration-200 border-border/50 ${isDeleted ? 'opacity-60 bg-muted/50 border-destructive/20' : ''}`}>
+                                <Card key={member.id} className={`hover:shadow-md transition-all duration-200 border-border/50 ${isPending ? 'border-warning/50 bg-warning/5' : ''}`}>
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <CardTitle className="text-sm font-medium">
                                             {member.name}
                                         </CardTitle>
-                                        {isDeleted && (
-                                            <span className="text-xs bg-destructive/10 text-destructive px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                                                <UserX className="h-3 w-3" /> Deleted
+                                        {isPending ? (
+                                            <span className="text-xs bg-warning/10 text-warning px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                                                <Clock className="h-3 w-3" /> Pending Approval
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                                                <CheckCircle className="h-3 w-3" /> Approved
                                             </span>
                                         )}
                                     </CardHeader>
@@ -190,35 +209,41 @@ export default function Team() {
                                         <p className="text-xs text-muted-foreground mt-1 mb-4">
                                             {member.email}
                                         </p>
-                                        {member.department && !isDeleted && (
+                                        {member.department && member.department !== 'Pending' && (
                                             <p className="text-xs text-muted-foreground">
                                                 Dep: {member.department}
                                             </p>
                                         )}
 
-                                        {isAdmin && !isDeleted && (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                className="w-full mt-4"
-                                                onClick={() => {
-                                                    if (confirm(`Are you sure you want to delete ${member.name}?`)) {
-                                                        deleteMemberMutation.mutate(member.id);
-                                                    }
-                                                }}
-                                            >
-                                                Delete Member
-                                            </Button>
-                                        )}
-                                        {isAdmin && isDeleted && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-full mt-4"
-                                                disabled
-                                            >
-                                                Deleted (Soft)
-                                            </Button>
+                                        {isAdmin && (
+                                            <div className="flex gap-2 mt-4">
+                                                {isPending && (
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        className="flex-1"
+                                                        onClick={() => approveMemberMutation.mutate(member.id)}
+                                                        disabled={approveMemberMutation.isPending}
+                                                    >
+                                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                                        Approve
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    className={isPending ? "" : "w-full"}
+                                                    onClick={() => {
+                                                        if (confirm(`Are you sure you want to permanently delete ${member.name}?`)) {
+                                                            deleteMemberMutation.mutate(member.id);
+                                                        }
+                                                    }}
+                                                    disabled={deleteMemberMutation.isPending}
+                                                >
+                                                    <UserX className="h-4 w-4 mr-1" />
+                                                    Delete
+                                                </Button>
+                                            </div>
                                         )}
                                     </CardContent>
                                 </Card>
