@@ -1,4 +1,4 @@
-import { LayoutDashboard, CheckSquare, Users, FolderOpen, UserCheck, Briefcase, Settings, HelpCircle } from "lucide-react";
+import { LayoutDashboard, CheckSquare, Users, FolderOpen, UserCheck, Briefcase, Settings, HelpCircle, ChevronRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -10,9 +10,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -26,7 +30,6 @@ const items = [
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
-  const currentPath = location.pathname;
 
   return (
     <Sidebar className="border-r border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/50 backdrop-blur-xl" collapsible="icon">
@@ -49,21 +52,61 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="px-2 space-y-1">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="flex items-center gap-3 w-full p-2"
-                      activeClassName="bg-primary/10 text-primary font-semibold shadow-sm"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {items.map((item) => {
+                const isExternal = item.url.startsWith("http");
+
+                if (item.subItems) {
+                  return (
+                    <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.subItems.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.title}>
+                                <SidebarMenuSubButton asChild>
+                                  <a href={subItem.url} target="_blank" rel="noopener noreferrer">
+                                    <span>{subItem.title}</span>
+                                  </a>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
+                      {isExternal ? (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full p-2 text-foreground/80 hover:text-primary">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </a>
+                      ) : (
+                        <NavLink
+                          to={item.url}
+                          end={item.url === "/"}
+                          className="flex items-center gap-3 w-full p-2"
+                          activeClassName="bg-primary/10 text-primary font-semibold shadow-sm"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </NavLink>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

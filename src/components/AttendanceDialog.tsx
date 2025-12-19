@@ -49,7 +49,23 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
     setCheckInTime("");
     setCheckOutTime("");
     setNotes("");
-    setJobsApplied(Math.floor(Math.random() * 11)); // Random 0-10
+    setJobsApplied(0);
+  };
+
+  // Determine effective jobsApplied and cleaned notes
+  const parseJobsFromNotes = (notesStr: string | null) => {
+    if (!notesStr) return { count: 0, cleanNotes: "" };
+
+    const matches = [...notesStr.matchAll(/Jobs Applied:\s*(\d+)/gi)];
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      return {
+        count: parseInt(lastMatch[1], 10),
+        // Remove ALL instances to clean it up
+        cleanNotes: notesStr.replace(/Jobs Applied:\s*\d+/gi, "").trim()
+      };
+    }
+    return { count: 0, cleanNotes: notesStr };
   };
 
   // Populate form when editing or reset when dialog opens/closes
@@ -62,10 +78,10 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
         setStatus(record.status);
         setCheckInTime(record.check_in_time || "");
         setCheckOutTime(record.check_out_time || "");
-        setNotes(record.notes || "");
-        // Even on edit, we generate a new random value as requested "just displaying some random value"
-        // or we could try to parse it, but requirement implies simple display.
-        setJobsApplied(Math.floor(Math.random() * 11));
+
+        const { count, cleanNotes } = parseJobsFromNotes(record.notes);
+        setNotes(cleanNotes);
+        setJobsApplied(count);
       } else {
         // New entry mode - reset form
         resetForm();
@@ -129,7 +145,13 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
     }
 
     // Append jobs applied to notes
-    const finalNotes = `${notes ? notes + "\n" : ""}Jobs Applied: ${jobsApplied}`;
+    // Append jobs applied to notes if greater than 0
+    let finalNotes = notes.trim();
+    if (jobsApplied > 0) {
+      finalNotes = finalNotes
+        ? `${finalNotes}\nJobs Applied: ${jobsApplied}`
+        : `Jobs Applied: ${jobsApplied}`;
+    }
 
     createAttendanceMutation.mutate({
       employee_id: employeeId,
@@ -235,16 +257,15 @@ export function AttendanceDialog({ open, onOpenChange, members, record }: Attend
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="jobsApplied" className="text-sm font-medium text-muted-foreground">Jobs Applied (Auto-detected)</Label>
+            <Label htmlFor="jobsApplied" className="text-sm font-medium text-muted-foreground">Jobs Applied</Label>
             <div className="relative">
               <Briefcase className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
               <Input
                 id="jobsApplied"
                 type="number"
                 value={jobsApplied}
-                readOnly
-                disabled
-                className="pl-10 h-11 bg-muted/50 border-0 ring-1 ring-black/5 dark:ring-white/10 text-muted-foreground cursor-not-allowed"
+                onChange={(e) => setJobsApplied(parseInt(e.target.value) || 0)}
+                className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-0 ring-1 ring-black/5 dark:ring-white/10 focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
           </div>

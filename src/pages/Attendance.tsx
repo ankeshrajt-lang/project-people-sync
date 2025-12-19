@@ -123,6 +123,22 @@ export default function Attendance() {
     return jobsAppliedByDate[date] || 0;
   };
 
+  const getCleanNotes = (notes: string | null) => {
+    if (!notes) return "-";
+    return notes.replace(/Jobs Applied:\s*\d+/gi, "").trim() || "-";
+  };
+
+  const getJobsAppliedFromNotes = (notes: string | null) => {
+    if (!notes) return 0;
+    const matches = [...notes.matchAll(/Jobs Applied:\s*(\d+)/gi)];
+    if (matches.length > 0) {
+      // Get the last match (most recent)
+      const lastMatch = matches[matches.length - 1];
+      return parseInt(lastMatch[1], 10);
+    }
+    return 0;
+  };
+
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: "default" | "destructive" | "outline" | "secondary"; className: string }> = {
       present: { variant: "default", className: "bg-success text-success-foreground border-0" },
@@ -448,10 +464,10 @@ export default function Attendance() {
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
-                      <TableCell className="font-medium text-accent">
-                        {getJobsAppliedForDate(record.date)}
+                      <TableCell className="font-medium text-primary">
+                        {getJobsAppliedFromNotes(record.notes)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{record.notes || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{getCleanNotes(record.notes)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -566,8 +582,8 @@ export default function Attendance() {
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
-                      <TableCell className="font-medium text-accent">
-                        {getJobsAppliedForDate(record.date)}
+                      <TableCell className="font-medium text-primary">
+                        {getJobsAppliedFromNotes(record.notes)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -683,8 +699,8 @@ export default function Attendance() {
                       <TableCell className="font-medium text-primary">
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
-                      <TableCell className="font-medium text-accent">
-                        {getJobsAppliedForDate(record.date)}
+                      <TableCell className="font-medium text-primary">
+                        {getJobsAppliedFromNotes(record.notes)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -821,7 +837,7 @@ export default function Attendance() {
                         {calculateTotalHours(record.check_in_time, record.check_out_time)}
                       </TableCell>
                       <TableCell className="font-medium text-accent">
-                        {getJobsAppliedForDate(record.date)}
+                        {getJobsAppliedFromNotes(record.notes)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

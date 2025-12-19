@@ -7,13 +7,14 @@ import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
-import TeamChat from "./pages/TeamChat";
+import Team from "./pages/Team";
 import Attendance from "./pages/Attendance";
 import FilesResources from "./pages/FilesResources";
 import Consultants from "./pages/Consultants";
 import Auth from "./pages/Auth";
 import SetupUsers from "./pages/SetupUsers";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -26,9 +27,10 @@ const App = () => (
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/setup-users" element={<SetupUsers />} />
-          <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/tasks" element={<ProtectedRoute><Layout><Tasks /></Layout></ProtectedRoute>} />
-          <Route path="/team" element={<ProtectedRoute><Layout><TeamChat /></Layout></ProtectedRoute>} />
+          <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
           <Route path="/attendance" element={<ProtectedRoute><Layout><Attendance /></Layout></ProtectedRoute>} />
           <Route path="/files" element={<ProtectedRoute><Layout><FilesResources /></Layout></ProtectedRoute>} />
           <Route path="/consultants" element={<ProtectedRoute><Layout><Consultants /></Layout></ProtectedRoute>} />
