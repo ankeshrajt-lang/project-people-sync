@@ -48,9 +48,21 @@ export function useAuth() {
 
             // If no team_member record, they might be a manager/admin without entry
             if (!memberData) {
-              setIsApproved(true); // Allow non-employee users
+              // Fallback: Check metadata. If they are an 'employee' but have no record, block them.
+              const role = session.user.user_metadata?.role;
+              if (role === 'employee') {
+                setIsApproved(false); // Pending/Broken state
+              } else {
+                setIsApproved(true); // Customers/Legacy allow access
+              }
             } else {
               setIsApproved(memberData.is_approved ?? false);
+            }
+
+            // FORCE BLOCK: Check against explicit list
+            // Note: We check if the email STARTS with the problematic usernames to be safe
+            if (session.user.email?.startsWith('vijayputta41') || session.user.email?.startsWith('vijayputta45')) {
+              setIsApproved(false);
             }
 
             setLoading(false);
@@ -97,9 +109,20 @@ export function useAuth() {
           .maybeSingle();
 
         if (!memberData) {
-          setIsApproved(true);
+          // Fallback: Check metadata. If they are an 'employee' but have no record, block them.
+          const role = session.user.user_metadata?.role;
+          if (role === 'employee') {
+            setIsApproved(false); // Pending/Broken state
+          } else {
+            setIsApproved(true); // Customers/Legacy allow access
+          }
         } else {
           setIsApproved(memberData.is_approved ?? false);
+        }
+
+        // FORCE BLOCK: Check against explicit list
+        if (session.user.email?.startsWith('vijayputta41') || session.user.email?.startsWith('vijayputta45')) {
+          setIsApproved(false);
         }
 
         setLoading(false);
@@ -118,6 +141,12 @@ export function useAuth() {
     setIsAdmin(false);
     setIsApproved(null);
   };
+
+  // Explicit Block List for broken legacy users
+  const BLOCKED_EMAILS = [
+    'vijayputta41@gmail.com', // Assuming gmail, or just prefix matching if needed
+    'vijayputta45@gmail.com'
+  ];
 
   return { user, session, loading, isAdmin, isApproved, signOut };
 }
