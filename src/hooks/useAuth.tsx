@@ -15,7 +15,7 @@ export function useAuth() {
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           setTimeout(async () => {
             // Check admin status
@@ -25,8 +25,11 @@ export function useAuth() {
               .eq("user_id", session.user.id)
               .eq("role", "admin")
               .maybeSingle();
-            
-            const userIsAdmin = !!adminData;
+
+            // STRICT ADMIN CHECK: Only vijay@shreellc.tech can be admin
+            const isEmailMatch = session.user.email === 'vijay@shreellc.tech';
+            const userIsAdmin = !!adminData && isEmailMatch;
+
             setIsAdmin(userIsAdmin);
 
             // If admin, always approved
@@ -49,7 +52,7 @@ export function useAuth() {
             } else {
               setIsApproved(memberData.is_approved ?? false);
             }
-            
+
             setLoading(false);
           }, 0);
         } else {
@@ -64,7 +67,7 @@ export function useAuth() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         // Check admin status
         const { data: adminData } = await supabase
@@ -73,8 +76,11 @@ export function useAuth() {
           .eq("user_id", session.user.id)
           .eq("role", "admin")
           .maybeSingle();
-        
-        const userIsAdmin = !!adminData;
+
+        // STRICT ADMIN CHECK: Only vijay@shreellc.tech can be admin
+        const isEmailMatch = session.user.email === 'vijay@shreellc.tech';
+        const userIsAdmin = !!adminData && isEmailMatch;
+
         setIsAdmin(userIsAdmin);
 
         if (userIsAdmin) {
@@ -95,7 +101,7 @@ export function useAuth() {
         } else {
           setIsApproved(memberData.is_approved ?? false);
         }
-        
+
         setLoading(false);
       } else {
         setLoading(false);
