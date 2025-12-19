@@ -55,35 +55,6 @@ export function AppSidebar() {
               {items.map((item) => {
                 const isExternal = item.url.startsWith("http");
 
-                if (item.subItems) {
-                  return (
-                    <Collapsible key={item.title} asChild defaultOpen className="group/collapsible">
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.subItems.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild>
-                                  <a href={subItem.url} target="_blank" rel="noopener noreferrer">
-                                    <span>{subItem.title}</span>
-                                  </a>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
-
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title} className="rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10">
