@@ -21,6 +21,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+const ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "executive", label: "Executive" },
+  { value: "senior", label: "Senior" },
+  { value: "team_lead", label: "Team Lead" },
+  { value: "manager", label: "Manager" },
+  { value: "custom", label: "Custom title" },
+];
+
 interface EditMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,16 +46,29 @@ interface EditMemberDialogProps {
 export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
+  const [roleLevel, setRoleLevel] = useState("member");
+  const [customRole, setCustomRole] = useState("");
   const [department, setDepartment] = useState("");
   const [systemRole, setSystemRole] = useState("team_member");
   const queryClient = useQueryClient();
+
+  const resolveRoleLevel = (value: string | null) => {
+    if (!value) return "member";
+    const normalized = value.toLowerCase().replace(/[\s-_]+/g, "_");
+    const match = ROLE_OPTIONS.find(
+      (option) =>
+        option.value !== "custom" &&
+        (option.label.toLowerCase() === normalized || option.value === normalized)
+    );
+    return match ? match.value : "custom";
+  };
 
   useEffect(() => {
     if (member) {
       setName(member.name);
       setEmail(member.email);
-      setRole(member.role || "");
+      setRoleLevel(resolveRoleLevel(member.role));
+      setCustomRole(member.role || "");
       setDepartment(member.department || "");
       setSystemRole(member.user_roles?.[0]?.role || "team_member");
     }
@@ -56,13 +78,18 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     mutationFn: async () => {
       if (!member) return;
 
+      const roleLabel =
+        roleLevel === "custom"
+          ? (customRole.trim() || "Member")
+          : ROLE_OPTIONS.find((option) => option.value === roleLevel)?.label || "Member";
+
       // Update team member
       const { error } = await supabase
         .from("team_members")
         .update({
           name,
           email,
-          role: role || null,
+          role: roleLabel,
           department: department || null,
         })
         .eq("id", member.id);
@@ -95,6 +122,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+    if (roleLevel === "custom" && !customRole.trim()) {
+      toast.error("Please provide a title for the custom role");
       return;
     }
     updateMemberMutation.mutate();
@@ -131,13 +162,27 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-role">Job Title (Optional)</Label>
-              <Input
-                id="edit-role"
-                placeholder="e.g., Developer, Designer"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              />
+              <Label htmlFor="edit-role">Role Level</Label>
+              <Select value={roleLevel} onValueChange={setRoleLevel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roleLevel === "custom" && (
+                <Input
+                  id="edit-custom-role"
+                  placeholder="Enter the title you want to display"
+                  value={customRole}
+                  onChange={(e) => setCustomRole(e.target.value)}
+                />
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-department">Department (Optional)</Label>

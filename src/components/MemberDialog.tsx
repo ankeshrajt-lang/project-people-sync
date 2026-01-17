@@ -21,6 +21,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+const ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "executive", label: "Executive" },
+  { value: "senior", label: "Senior" },
+  { value: "team_lead", label: "Team Lead" },
+  { value: "manager", label: "Manager" },
+  { value: "custom", label: "Custom title" },
+];
+
 interface MemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,19 +38,25 @@ interface MemberDialogProps {
 export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
+  const [roleLevel, setRoleLevel] = useState("member");
+  const [customRole, setCustomRole] = useState("");
   const [systemRole, setSystemRole] = useState("team_member");
   const queryClient = useQueryClient();
 
   const createMemberMutation = useMutation({
     mutationFn: async () => {
+      const selectedRoleLabel =
+        roleLevel === "custom"
+          ? customRole.trim() || "Member"
+          : ROLE_OPTIONS.find((option) => option.value === roleLevel)?.label || "Member";
+
       // Create team member
       const { data: newMember, error } = await supabase
         .from("team_members")
         .insert({
           name,
           email,
-          role: role || null,
+          role: selectedRoleLabel,
         })
         .select()
         .single();
@@ -75,7 +90,8 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
   const resetForm = () => {
     setName("");
     setEmail("");
-    setRole("");
+    setRoleLevel("member");
+    setCustomRole("");
     setSystemRole("team_member");
   };
 
@@ -87,6 +103,10 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+    if (roleLevel === "custom" && !customRole.trim()) {
+      toast.error("Please provide a title for the custom role");
       return;
     }
     createMemberMutation.mutate();
@@ -123,13 +143,27 @@ export function MemberDialog({ open, onOpenChange }: MemberDialogProps) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="role">Job Title (Optional)</Label>
-              <Input
-                id="role"
-                placeholder="e.g., Developer, Designer"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              />
+              <Label htmlFor="role">Role Level</Label>
+              <Select value={roleLevel} onValueChange={setRoleLevel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {roleLevel === "custom" && (
+                <Input
+                  id="custom-role"
+                  placeholder="Enter the title you want to display"
+                  value={customRole}
+                  onChange={(e) => setCustomRole(e.target.value)}
+                />
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="systemRole">Permission Level</Label>

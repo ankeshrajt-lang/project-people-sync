@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit, MoreVertical, FolderSymlink, FolderPlus } from "lucide-react";
+import { Upload, Trash2, Download, Calendar as CalendarIcon, Edit, MoreVertical, FolderSymlink, FolderPlus, FileText, Sparkles, Layers, Clock } from "lucide-react";
 import { FileUploadDialog } from "@/components/FileUploadDialog";
 import { InterviewDialog } from "@/components/InterviewDialog";
 import { InterviewCalendar } from "@/components/InterviewCalendar";
@@ -114,40 +114,40 @@ export default function FilesResources() {
     {}
   );
 
+  const deleteFileEverywhere = async (file: { id: string; file_path: string }) => {
+    const storagePath = normalizeStoragePath(file.file_path);
+
+    const { error: dbError } = await supabase
+      .from("files")
+      .delete()
+      .eq("id", file.id);
+
+    if (dbError) {
+      console.error("Database deletion error:", dbError);
+      throw new Error(`Failed to delete file from database: ${dbError.message}`);
+    }
+
+    if (!storagePath) {
+      console.warn("No storage path for file, skipped storage delete", file);
+      return;
+    }
+
+    try {
+      const { error: storageError } = await supabase.storage
+        .from("project-files")
+        .remove([storagePath]);
+
+      if (storageError) {
+        console.warn("Storage deletion error (DB row already removed):", storageError);
+      }
+    } catch (error) {
+      console.warn("Unexpected storage deletion error (DB row already removed):", error);
+    }
+  };
+
   // Delete file mutation
   const deleteFileMutation = useMutation({
-    mutationFn: async (file: { id: string; file_path: string }) => {
-      const storagePath = normalizeStoragePath(file.file_path);
-
-      // Always remove DB record so the file disappears from the UI,
-      // even if the storage object is missing or its path is invalid.
-      const { error: dbError } = await supabase
-        .from("files")
-        .delete()
-        .eq("id", file.id);
-
-      if (dbError) {
-        console.error("Database deletion error:", dbError);
-        throw new Error(`Failed to delete file from database: ${dbError.message}`);
-      }
-
-      if (!storagePath) {
-        console.warn("No storage path for file, skipped storage delete", file);
-        return;
-      }
-
-      try {
-        const { error: storageError } = await supabase.storage
-          .from("project-files")
-          .remove([storagePath]);
-
-        if (storageError) {
-          console.warn("Storage deletion error (DB row already removed):", storageError);
-        }
-      } catch (error) {
-        console.warn("Unexpected storage deletion error (DB row already removed):", error);
-      }
-    },
+    mutationFn: deleteFileEverywhere,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["files"] });
       toast.success("File deleted successfully");
@@ -156,6 +156,28 @@ export default function FilesResources() {
       console.error("Delete file error:", error);
       toast.error(error.message || "Failed to delete file");
     },
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (folderName: string) => {
+      const cleaned = normalizeFolderPath(folderName);
+      if (!cleaned) throw new Error("Folder name is required");
+      const { data: folderFiles, error } = await supabase
+        .from("files")
+        .select("*")
+        .like("file_path", `${cleaned}/%`);
+      if (error) throw error;
+      for (const f of folderFiles || []) {
+        await deleteFileEverywhere(f);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["files"] });
+      toast.success("Folder and files deleted");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to delete folder");
+    }
   });
 
   const moveFileMutation = useMutation({
@@ -353,6 +375,14 @@ export default function FilesResources() {
     return acc;
   }, {});
 
+  const totalFiles = files?.length || 0;
+  const totalFolders = Object.keys(folderCounts).filter((f) => f).length;
+  const upcomingInterviews = useMemo(() => {
+    if (!interviews) return 0;
+    const now = new Date();
+    return interviews.filter((i: any) => new Date(i.scheduled_at) >= now).length;
+  }, [interviews]);
+
   const allFolderNames = Array.from(
     new Set([
       ...Object.keys(folderCounts),
@@ -399,35 +429,85 @@ export default function FilesResources() {
     return fileFolder === targetFolder;
   });
   const uploadInitialFolder = selectedFolder === "all" || selectedFolder === ROOT_KEY ? "" : selectedFolder;
+  const canDeleteFolder = (name: string) => name !== "all" && name !== ROOT_KEY;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Files & Resources</h2>
-          <p className="text-muted-foreground">Manage files and interview schedules</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => setIsCreateFolderOpen(true)} variant="secondary" className="gap-2">
-            <FolderPlus className="h-4 w-4" />
-            Create Folder
-          </Button>
-          <Button onClick={() => setIsFileDialogOpen(true)} variant="outline" className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload File
-          </Button>
-          <Button onClick={() => setIsInterviewDialogOpen(true)} className="gap-2">
-            <CalendarIcon className="h-4 w-4" />
-            Schedule Interview
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-8 animate-fade-in pb-10">
+      <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <Card className="bg-gradient-to-br from-primary/10 via-white to-blue-50 border-primary/10 shadow-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">ShreeLLC</p>
+                <CardTitle className="text-3xl">Resources Command</CardTitle>
+                <CardDescription className="text-base">
+                  A clean shelf for files, interview loops, and folders. Aligned with the new Team and Attendance look.
+                </CardDescription>
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-sm bg-white/70 px-3 py-1.5 rounded-full border shadow-sm">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>Curated workspace</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <div className="p-4 rounded-xl bg-white/70 border border-white/60 shadow-sm flex items-start gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Total files</p>
+                <p className="text-lg font-semibold mt-1">{totalFiles}</p>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-white/70 border border-white/60 shadow-sm flex items-start gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Layers className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Folders</p>
+                <p className="text-lg font-semibold mt-1">{totalFolders}</p>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-white/70 border border-white/60 shadow-sm flex items-start gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Upcoming interviews</p>
+                <p className="text-lg font-semibold mt-1">{upcomingInterviews}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-primary/20 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Quick Actions</CardTitle>
+            <CardDescription>Spin up folders, upload, or schedule interviews fast.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button onClick={() => setIsCreateFolderOpen(true)} variant="secondary" className="gap-2 w-full">
+              <FolderPlus className="h-4 w-4" />
+              Create Folder
+            </Button>
+            <Button onClick={() => setIsFileDialogOpen(true)} variant="outline" className="gap-2 w-full">
+              <Upload className="h-4 w-4" />
+              Upload File
+            </Button>
+            <Button onClick={() => setIsInterviewDialogOpen(true)} className="gap-2 w-full">
+              <CalendarIcon className="h-4 w-4" />
+              Schedule Interview
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
 
       <Tabs defaultValue="files" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="list">Interview List</TabsTrigger>
+          <TabsTrigger value="files" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Files</TabsTrigger>
+          <TabsTrigger value="calendar" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Calendar</TabsTrigger>
+          <TabsTrigger value="list" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">Interview List</TabsTrigger>
         </TabsList>
 
         {/* Files Tab */}
@@ -445,25 +525,55 @@ export default function FilesResources() {
                   (folder.name === ROOT_KEY && selectedFolder === ROOT_KEY) ||
                   (folder.name !== "all" && folder.name !== ROOT_KEY && selectedFolder === folder.name);
                 return (
-                  <button
+                  <div
                     key={folder.name}
-                    onClick={() => setSelectedFolder(folder.name)}
                     className={cn(
-                      "text-left rounded-lg border p-4 transition hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2",
+                      "rounded-lg border p-4 transition hover:shadow-sm",
                       style.bg,
                       style.border,
                       style.text,
                       isActive ? "ring-2 ring-offset-2 ring-primary" : ""
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("h-2.5 w-2.5 rounded-full", style.dot)} />
-                        <span className="font-semibold">{folder.label}</span>
-                      </div>
-                      <span className="text-xs font-medium">{folder.count} file{folder.count === 1 ? "" : "s"}</span>
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        onClick={() => setSelectedFolder(folder.name)}
+                        className="flex-1 text-left focus:outline-none"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2.5 w-2.5 rounded-full", style.dot)} />
+                          <span className="font-semibold">{folder.label}</span>
+                        </div>
+                        <p className="text-xs font-medium mt-1">{folder.count} file{folder.count === 1 ? "" : "s"}</p>
+                      </button>
+                      {canDeleteFolder(folder.name) && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete folder "{folder.label}"?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This removes the folder and all files inside it from the system.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteFolderMutation.mutate(folder.name)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -480,103 +590,105 @@ export default function FilesResources() {
                 </p>
               </CardContent>
             </Card>
-          ) : filteredFiles.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No files in this folder. Switch folders or upload directly here.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredFiles.map((file) => {
-                const filePath = normalizeStoragePath(file.file_path);
-                const folderLabel = extractFolder(filePath) || "Root";
-                return (
-                <Card key={file.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base line-clamp-2">{file.name}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {formatFileSize(file.file_size)}
-                          {" • "}
-                          {folderLabel}
-                        </CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            className="gap-2"
-                            onClick={() => {
-                              setFileToMove(file);
-                              setTargetFolder(extractFolder(file.file_path) || "");
-                              setIsMoveDialogOpen(true);
-                            }}
-                          >
-                            <FolderSymlink className="h-4 w-4" />
-                            Move to folder
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>Type: {file.file_type || "Unknown"}</p>
-                      <p>Uploaded: {format(new Date(file.created_at), "MMM d, yyyy")}</p>
-                    </div>
-                    <div className="flex gap-2 mt-4 pt-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownload(file.file_path, file.name)}
-                        className="flex-1"
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete File</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{file.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteFileMutation.mutate({ id: file.id, file_path: file.file_path })}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        ) : filteredFiles.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">
+                No files in this folder. Switch folders or upload directly here.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Name</th>
+                    <th className="px-4 py-3 text-left font-medium">Folder</th>
+                    <th className="px-4 py-3 text-left font-medium">Type</th>
+                    <th className="px-4 py-3 text-left font-medium">Size</th>
+                    <th className="px-4 py-3 text-left font-medium">Uploaded</th>
+                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFiles.map((file) => {
+                    const filePath = normalizeStoragePath(file.file_path);
+                    const folderLabel = extractFolder(filePath) || "Root";
+                    return (
+                      <tr key={file.id} className="border-t border-border/60 hover:bg-muted/50 transition-colors">
+                        <td className="px-4 py-3 font-medium">{file.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{folderLabel}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{file.file_type || "Unknown"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatFileSize(file.file_size)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{format(new Date(file.created_at), "MMM d, yyyy")}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownload(file.file_path, file.name)}
+                              className="h-8 px-3"
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="gap-2"
+                                  onClick={() => {
+                                    setFileToMove(file);
+                                    setTargetFolder(extractFolder(file.file_path) || "");
+                                    setIsMoveDialogOpen(true);
+                                  }}
+                                >
+                                  <FolderSymlink className="h-4 w-4" />
+                                  Move to folder
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive cursor-pointer gap-2">
+                                      <Trash2 className="h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete File</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete "{file.name}"? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => deleteFileMutation.mutate({ id: file.id, file_path: file.file_path })}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+        )}
         </TabsContent>
 
         {/* Calendar Tab */}
@@ -638,16 +750,16 @@ export default function FilesResources() {
                                 </div>
                                 {interview.team_members && (
                                   <p className="text-muted-foreground">
-                                    👤 {interview.team_members.name}
+                                    Candidate: {interview.team_members.name}
                                   </p>
                                 )}
                                 {interview.interviewer_name && (
                                   <p className="text-muted-foreground">
-                                    👨‍💼 Interviewer: {interview.interviewer_name}
+                                    Interviewer: {interview.interviewer_name}
                                   </p>
                                 )}
                                 <p className="text-muted-foreground">
-                                  ⏱️ {interview.duration_minutes} minutes
+                                  Duration: {interview.duration_minutes} minutes
                                 </p>
                                 {interview.notes && (
                                   <p className="text-xs text-muted-foreground line-clamp-2 pt-2 border-t">

@@ -377,8 +377,10 @@ export default function TeamChat() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Team & Chat</h2>
-          <p className="text-muted-foreground">Manage team members and communicate</p>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Team Ops & Chat</h2>
+          <p className="text-muted-foreground">
+            ShreeLLC consultancy crew across LinkedIn, Jobright, Dice, and Indeed. Promotions are manager-only (Vijay) with Prathusha leading pods.
+          </p>
         </div>
       </div>
 
