@@ -247,6 +247,18 @@ export default function Attendance() {
     }
   };
 
+  const secondsSinceMidnight = (date: Date) => {
+    return date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds();
+  };
+
+  const formatDurationHMS = (seconds: number) => {
+    if (!seconds || seconds < 0) return "00:00:00";
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
   const getTopPerformer = (attendance: any[]) => {
     if (!attendance || attendance.length === 0) return null;
     const totals = new Map<string, number>();
@@ -435,6 +447,43 @@ export default function Attendance() {
 
   const todaySessionsForUser = useMemo(() => parseSessions(todayRecordForUser?.notes || null), [todayRecordForUser]);
   const hasOpenSession = useMemo(() => todaySessionsForUser.some((s) => !s.out), [todaySessionsForUser]);
+  const [todayElapsedSeconds, setTodayElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const computeElapsed = () => {
+      let totalSeconds = 0;
+      const nowSeconds = secondsSinceMidnight(new Date());
+      if (todaySessionsForUser.length > 0) {
+        todaySessionsForUser.forEach((s) => {
+          if (!s.in) return;
+          const [hIn, mIn, sIn = "00"] = s.in.split(":");
+          const start = Number(hIn) * 3600 + Number(mIn) * 60 + Number(sIn);
+          const end = s.out
+            ? (() => {
+                const [hO, mO, sO = "00"] = s.out.split(":");
+                return Number(hO) * 3600 + Number(mO) * 60 + Number(sO);
+              })()
+            : nowSeconds;
+          if (end > start) totalSeconds += end - start;
+        });
+      } else if (todayRecordForUser?.check_in_time) {
+        const [hIn, mIn] = todayRecordForUser.check_in_time.split(":");
+        const start = Number(hIn) * 3600 + Number(mIn) * 60;
+        const end = todayRecordForUser.check_out_time
+          ? (() => {
+              const [hO, mO] = todayRecordForUser.check_out_time.split(":");
+              return Number(hO) * 3600 + Number(mO) * 60;
+            })()
+          : nowSeconds;
+        if (end > start) totalSeconds = end - start;
+      }
+      setTodayElapsedSeconds(totalSeconds);
+    };
+
+    computeElapsed();
+    const timer = setInterval(computeElapsed, 1000);
+    return () => clearInterval(timer);
+  }, [todaySessionsForUser, todayRecordForUser]);
 
   const calculateStats = (attendance: any[]) => {
     const present = attendance?.filter((a) => a.status === "present").length || 0;
@@ -614,28 +663,31 @@ export default function Attendance() {
         </Card>
 
         <Card className="border border-primary/20 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Quick Check</CardTitle>
-            <CardDescription>
-              Check-in/out for today. Your times auto-fill the attendance sheet.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Current status</p>
-                <p className="text-xs text-muted-foreground">
-                  {hasOpenSession
-                    ? `Checked in at ${formatTime(todaySessionsForUser.find((s) => !s.out)?.in?.slice(0, 5) || todayRecordForUser?.check_in_time || null)}`
-                    : todaySessionsForUser.length > 0
-                      ? `Last checkout at ${formatTime(todaySessionsForUser[todaySessionsForUser.length - 1]?.out?.slice(0, 5) || todayRecordForUser?.check_out_time || null)}`
-                      : "Not checked in yet"}
-                </p>
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Check</CardTitle>
+              <CardDescription>
+                Check-in/out for today. Your times auto-fill the attendance sheet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Current status</p>
+                  <p className="text-xs text-muted-foreground">
+                    {hasOpenSession
+                      ? `Checked in at ${formatTime(todaySessionsForUser.find((s) => !s.out)?.in?.slice(0, 5) || todayRecordForUser?.check_in_time || null)}`
+                      : todaySessionsForUser.length > 0
+                        ? `Last checkout at ${formatTime(todaySessionsForUser[todaySessionsForUser.length - 1]?.out?.slice(0, 5) || todayRecordForUser?.check_out_time || null)}`
+                        : "Not checked in yet"}
+                  </p>
+                  <p className="text-xs text-primary font-semibold">
+                    Today logged: {formatDurationHMS(todayElapsedSeconds)}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                className="flex-1 min-w-[140px]"
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="flex-1 min-w-[140px]"
                 onClick={() => checkInMutation.mutate()}
                 disabled={!currentMemberId || isCheckingIn || hasOpenSession}
               >
