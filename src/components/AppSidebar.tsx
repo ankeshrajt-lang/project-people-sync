@@ -32,16 +32,16 @@ export function AppSidebar() {
   const location = useLocation();
 
   return (
-    <Sidebar className="border-r border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/50 backdrop-blur-xl" collapsible="icon">
+    <Sidebar className="border-r border-black/5 dark:border-white/5 bg-white/60 dark:bg-black/50 backdrop-blur-2xl" collapsible="icon">
       <SidebarContent className="pt-4">
         <div className={`px-4 mb-6 flex items-center ${open ? "justify-start" : "justify-center"}`}>
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-            <Briefcase className="h-4 w-4 text-white" />
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-primary via-blue-500 to-emerald-400 flex items-center justify-center shadow-xl shadow-primary/30 shrink-0">
+            <Briefcase className="h-5 w-5 text-white" />
           </div>
           {open && (
             <div className="ml-3 animate-fade-in">
-              <h2 className="font-bold text-lg tracking-tight">PeopleSync</h2>
-              <p className="text-xs text-muted-foreground">Manager Workspace</p>
+              <h2 className="font-bold text-lg tracking-tight">ShreeLLC</h2>
+              <p className="text-xs text-muted-foreground">People & Ops Command</p>
             </div>
           )}
         </div>
