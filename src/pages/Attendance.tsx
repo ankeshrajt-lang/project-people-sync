@@ -209,42 +209,33 @@ export default function Attendance() {
     }
   };
 
-  const calculateTotalHours = (checkIn: string | null, checkOut: string | null, notes?: string | null) => {
-    const sessions = parseSessions(notes || null);
+  const todayDateStr = format(new Date(), "yyyy-MM-dd");
+
+  const getRecordHoursNumber = (record: any, includeOpenNow: boolean) => {
+    const sessions = parseSessions(record?.notes || null);
     if (sessions.length > 0) {
       const total = sessions.reduce((sum, s) => {
-        if (!s.in || !s.out) return sum;
-        return sum + calculateHoursNumber(s.in, s.out);
+        if (!s.in) return sum;
+        const endTime = s.out || (includeOpenNow && record.date === todayDateStr ? `${format(new Date(), "HH:mm:ss")}` : null);
+        if (!endTime) return sum;
+        return sum + calculateHoursNumber(s.in, endTime);
       }, 0);
-      if (total <= 0) return "-";
-      const hours = Math.floor(total);
-      const minutes = Math.round((total - hours) * 60);
-      return `${hours}h ${minutes}m`;
+      if (total > 0) return total;
     }
 
-    if (!checkIn || !checkOut) return "-";
-
-    try {
-      const [inHour, inMin] = checkIn.split(":").map(Number);
-      const [outHour, outMin] = checkOut.split(":").map(Number);
-
-      const inDate = new Date();
-      inDate.setHours(inHour, inMin, 0, 0);
-
-      const outDate = new Date();
-      outDate.setHours(outHour, outMin, 0, 0);
-
-      const diffMins = differenceInMinutes(outDate, inDate);
-
-      if (diffMins < 0) return "-";
-
-      const hours = Math.floor(diffMins / 60);
-      const minutes = diffMins % 60;
-
-      return `${hours}h ${minutes}m`;
-    } catch (error) {
-      return "-";
+    if (record?.check_in_time && record?.check_out_time) {
+      return calculateHoursNumber(record.check_in_time, record.check_out_time);
     }
+
+    return 0;
+  };
+
+  const calculateTotalHoursDisplay = (record: any) => {
+    const hours = getRecordHoursNumber(record, record?.date === todayDateStr);
+    if (hours <= 0) return "-";
+    const whole = Math.floor(hours);
+    const minutes = Math.round((hours - whole) * 60);
+    return `${whole}h ${minutes}m`;
   };
 
   const secondsSinceMidnight = (date: Date) => {
@@ -495,35 +486,7 @@ export default function Attendance() {
     // Calculate total hours worked (prefer session logs; fallback to single span)
     const totalHours =
       attendance?.reduce((sum, record) => {
-        const sessions = parseSessions(record.notes);
-        if (sessions.length > 0) {
-          const sessionHours = sessions.reduce((s, sess) => {
-            if (!sess.in || !sess.out) return s;
-            return s + calculateHoursNumber(sess.in, sess.out);
-          }, 0);
-          return sum + sessionHours;
-        }
-        if (record.check_in_time && record.check_out_time) {
-          try {
-            const [inHour, inMin] = record.check_in_time.split(":").map(Number);
-            const [outHour, outMin] = record.check_out_time.split(":").map(Number);
-
-            const inDate = new Date();
-            inDate.setHours(inHour, inMin, 0, 0);
-
-            const outDate = new Date();
-            outDate.setHours(outHour, outMin, 0, 0);
-
-            const diffMins = differenceInMinutes(outDate, inDate);
-
-            if (diffMins > 0) {
-              return sum + diffMins / 60;
-            }
-          } catch (error) {
-            return sum;
-          }
-        }
-        return sum;
+        return sum + getRecordHoursNumber(record, record.date === todayDateStr);
       }, 0) || 0;
 
     return { present, absent, late, total, percentage, totalHours };
@@ -844,7 +807,7 @@ export default function Attendance() {
                       <TableCell>{formatTime(record.check_in_time)}</TableCell>
                       <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
-                        {calculateTotalHours(record.check_in_time, record.check_out_time, record.notes)}
+                        {calculateTotalHoursDisplay(record)}
                       </TableCell>
                       <TableCell className="font-medium text-primary">
                         {getJobsAppliedFromNotes(record.notes)}
@@ -999,7 +962,7 @@ export default function Attendance() {
                       <TableCell>{formatTime(record.check_in_time)}</TableCell>
                       <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
-                        {calculateTotalHours(record.check_in_time, record.check_out_time, record.notes)}
+                        {calculateTotalHoursDisplay(record)}
                       </TableCell>
                       <TableCell className="font-medium text-primary">
                         {getJobsAppliedFromNotes(record.notes)}
@@ -1155,7 +1118,7 @@ export default function Attendance() {
                       <TableCell>{formatTime(record.check_in_time)}</TableCell>
                       <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
-                        {calculateTotalHours(record.check_in_time, record.check_out_time, record.notes)}
+                        {calculateTotalHoursDisplay(record)}
                       </TableCell>
                       <TableCell className="font-medium text-primary">
                         {getJobsAppliedFromNotes(record.notes)}
@@ -1331,7 +1294,7 @@ export default function Attendance() {
                       <TableCell>{formatTime(record.check_in_time)}</TableCell>
                       <TableCell>{formatTime(record.check_out_time)}</TableCell>
                       <TableCell className="font-medium text-primary">
-                        {calculateTotalHours(record.check_in_time, record.check_out_time, record.notes)}
+                        {calculateTotalHoursDisplay(record)}
                       </TableCell>
                       <TableCell className="font-medium text-accent">
                         {getJobsAppliedFromNotes(record.notes)}
